@@ -110,12 +110,21 @@ The UI adapts the dark palette and chamfered controls from [PRN UI](https://gith
 
 ## Third-party components
 
-| Component | Role | License |
+| Component | Version / revision | License |
 | --- | --- | --- |
-| [onnx-community/Kokoro-82M-v1.0-ONNX](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX) | Speech model and bundled voice files | **Apache-2.0** |
-| [espeak-ng/espeak-ng (eSpeak NG)](https://github.com/espeak-ng/espeak-ng) | Text-to-phoneme engine and language data embedded through phonemizer | **GPL-3.0-or-later** |
+| [PRN UI (adapted palette and button geometry)](https://github.com/dkorolev/prnui/tree/986d93b681cb49f28b8fcd3069e2b3a04dad1a3f) | 986d93b681cb49f28b8fcd3069e2b3a04dad1a3f | **MIT** |
+| [onnx-community/Kokoro-82M-v1.0-ONNX (model and six voices)](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/tree/1939ad2a8e416c0acfeecc08a694d14ef25f2231) | 1939ad2a8e416c0acfeecc08a694d14ef25f2231 | **Apache-2.0** |
+| [kokoro-js](https://github.com/hexgrad/kokoro) | 1.2.1 | **Apache-2.0** |
+| [@huggingface/transformers](https://github.com/huggingface/transformers.js) | 3.8.1 | **Apache-2.0** |
+| [phonemizer JavaScript wrapper](https://github.com/xenova/phonemizer.js) | 1.2.1 | **Apache-2.0** |
+| [eSpeak NG code and language data](https://github.com/espeak-ng/espeak-ng) | Embedded in phonemizer 1.2.1; engine revision not identified upstream | **GPL-3.0-or-later** |
+| [ONNX Runtime Web (JavaScript and WASM)](https://github.com/microsoft/onnxruntime/tree/89f8206ba4f1c22c39e0297fb55272e8ce8cd7d0) | 1.22.0-dev.20250409-89f8206ba4 | **MIT** |
+| [onnxruntime-common (inside Transformers.js)](https://github.com/microsoft/onnxruntime/tree/v1.21.0) | 1.21.0 | **MIT** |
+| [@huggingface/jinja (inside Transformers.js)](https://github.com/huggingface/huggingface.js) | 0.5.3 | **MIT** |
 
-These are separate components with separate licenses. The phonemizer JavaScript wrapper itself is Apache-2.0. Both names, roles, repository links, and licenses appear directly in each HTML page’s visible license summary, without opening the detailed inventory.
+Kokoro is the speech model; eSpeak NG is the text-to-phoneme engine. These are separate components with separate licenses. The phonemizer JavaScript wrapper itself is Apache-2.0. Both names, roles, repository links, and licenses appear directly in each HTML page’s visible license summary, without opening the detailed inventory.
+
+**Development/test tooling:** `puppeteer-core` 24.10.0 is **Apache-2.0** and is not shipped to visitors. Its complete transitive npm dependency inventory, with each package’s version and license, is included in both HTML builds and recorded in [package-lock.json](package-lock.json). Builds use Node’s built-ins; no npm runtime dependency is installed for production.
 
 **The built HTML includes eSpeak NG code licensed under GPL-3.0-or-later (GNU General Public License version 3 or later).** This GPL-covered code is part of the HTML you share. It is bundled by phonemizer; the phonemizer wrapper's Apache-2.0 license is separate from the eSpeak NG license. The full GPL text is included in the HTML's notices, and the [eSpeak NG source](https://github.com/espeak-ng/espeak-ng) is available upstream.
 
