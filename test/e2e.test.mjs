@@ -139,8 +139,23 @@ test("the standalone application works offline", { timeout: 600_000 }, async (t)
         await page.click("#speak");
         assert.match(await waitForEnd(page), /^Done — [\d.]+s of audio at 24000 Hz/);
         assertWav(await inspectWav(page));
+        await page.evaluate(voice => { window.testVoiceWavs ??= {}; window.testVoiceWavs[voice] = document.getElementById("download").href; }, id);
       });
     }
+
+    await t.test("unchanged text and voice replay the saved WAV without inference", async () => {
+      const before = await page.evaluate(() => ({ count: window.testCalls.length, url: document.getElementById("download").href }));
+      await setInput(page, "Hello from our offline speech test.", "af_heart");
+      const originalUrl = await page.evaluate(() => window.testVoiceWavs.af_heart);
+      await page.$eval("#audio", el => { el.currentTime = 0.5; });
+      await page.click("#speak");
+      await page.waitForFunction(() => document.getElementById("status").textContent === "Done — playing the prepared speech.");
+      const after = await page.evaluate(() => ({ count: window.testCalls.length, url: document.getElementById("download").href, time: document.getElementById("audio").currentTime }));
+      assert.equal(after.count, before.count);
+      assert.equal(after.url, originalUrl);
+      assert.ok(after.time < 0.5, "replay starts at the beginning");
+      await page.$eval("#audio", el => el.pause());
+    });
 
     await t.test("two short utterances are joined with the expected silence", async () => {
       // Padding crosses the real 300-character boundary without generating a long speech.
@@ -185,6 +200,7 @@ test("the standalone application works offline", { timeout: 600_000 }, async (t)
       window.testDefer = false;
       KokoroTTS.prototype.generate = async (text, options) => {
         window.testCalls.push({ text, voice: options.voice });
+        options.onPhonemes("test phonemes");
         if (window.testDefer) await new Promise((resolve) => { window.testRelease = resolve; });
         if (window.testMode === "error") throw new Error("test inference failure");
         return {
@@ -216,7 +232,7 @@ test("the standalone application works offline", { timeout: 600_000 }, async (t)
     await t.test("cancellation waits for active inference and preserves the previous output", async () => {
       const previous = await page.$eval("#download", (el) => el.href);
       await page.evaluate(() => { window.testCalls = []; window.testDefer = true; });
-      await setInput(page, "x".repeat(450));
+      await setInput(page, "y".repeat(450));
       await page.click("#speak");
       await page.click("#cancel");
       assert.equal(await page.$eval("#speak", (el) => el.disabled), true);
@@ -231,7 +247,7 @@ test("the standalone application works offline", { timeout: 600_000 }, async (t)
       for (const mode of ["error", "empty", "invalid", "rate-change"]) {
         const previous = await page.$eval("#download", (el) => el.href);
         await page.evaluate((mode) => { window.testCalls = []; window.testMode = mode; }, mode);
-        await setInput(page, mode === "rate-change" ? "x".repeat(450) : "Hello");
+        await setInput(page, mode === "rate-change" ? "z".repeat(450) : `Hello ${mode}`);
         await page.click("#speak");
         assert.match(await waitForEnd(page), /^Error/);
         assert.equal(await page.$eval("#speak", (el) => el.disabled), false);
@@ -244,7 +260,7 @@ test("the standalone application works offline", { timeout: 600_000 }, async (t)
       await page.click("#speak");
       assert.match(await waitForEnd(page), /^Done/);
       assert.notEqual(await page.$eval("#download", (el) => el.href), previous);
-      assert.equal(await page.evaluate(async (url) => { try { await fetch(url); return true; } catch { return false; } }, previous), false);
+      assert.equal(await page.evaluate(async (url) => { try { await fetch(url); return true; } catch { return false; } }, previous), true);
     });
 
     await t.test("Unicode is accepted, oversized and empty text are rejected, and controls have labels", async () => {
@@ -262,6 +278,14 @@ test("the standalone application works offline", { timeout: 600_000 }, async (t)
       }
       assert.ok(await page.$eval("#text", (el) => el.labels.length));
       assert.equal(await page.$eval("#status", (el) => el.getAttribute("role")), "status");
+    });
+    await t.test("clearing the audio cache releases WAVs without unloading the model", async () => {
+      const url = await page.$eval("#download", el => el.href);
+      await page.click("#clear-audio-cache");
+      assert.match(await page.$eval("#audio-cache-info", el => el.textContent), /0 \/ 10/);
+      assert.equal(await page.$eval("#download", el => el.getAttribute("aria-disabled")), "true");
+      assert.equal(await page.$eval("#speak", el => el.disabled), false);
+      assert.equal(await page.evaluate(async url => { try { await fetch(url); return true; } catch { return false; } }, url), false);
     });
     assert.deepEqual(blocked, [], "the page tried to reach the network");
     assert.deepEqual(pageErrors, [], "uncaught browser errors");

@@ -91,3 +91,9 @@ test("license disclosure includes browser components, the entire tooling graph a
   assert.match(html, /corresponding-source requirements/);
   assert.ok(!html.includes("<script"));
 });
+
+
+test("an unsupported Kokoro build requires an explicit adapter review", async () => {
+  const { withPhonemeProgress } = await import("../scripts/kokoro.mjs");
+  assert.throws(() => withPhonemeProgress("changed upstream implementation"), /review the phoneme-progress adapter/);
+});

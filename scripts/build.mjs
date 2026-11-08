@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Package the application, libraries, verified model, and voices into one HTML file.
 import fs from "node:fs";
+import { withPhonemeProgress } from "./kokoro.mjs";
 import { renderLicenses } from "./licenses.mjs";
 import path from "node:path";
 import zlib from "node:zlib";
@@ -80,7 +81,9 @@ export async function build({ root = ROOT, output = path.join(root, "dist", "off
   atomicWrite(output, (fd) => {
     fs.writeFileSync(fd, beforeAssets);
     for (const { name, file, type, kind } of assets) {
-      const gz = zlib.gzipSync(fs.readFileSync(file), { level: 9 });
+      const original = fs.readFileSync(file);
+      const bytes = name === "kokoro-js" ? Buffer.from(withPhonemeProgress(original.toString("utf8"))) : original;
+      const gz = zlib.gzipSync(bytes, { level: 9 });
       fs.writeFileSync(fd, `<script type="application/octet-stream" data-asset="${name}" data-type="${type}" data-kind="${kind}">`);
       fs.writeFileSync(fd, gz.toString("base64"));
       fs.writeFileSync(fd, "</script>\n");

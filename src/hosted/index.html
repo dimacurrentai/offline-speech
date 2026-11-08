@@ -11,15 +11,18 @@
 <body>
 <main>
   <h1>offline-speech</h1>
+  <div class="row"><label for="theme">Theme</label><select id="theme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></div>
   <p class="muted">Download once, bookmark this page, and turn text into speech with no internet. Your text and audio stay on this device.</p>
   <nav aria-label="Steps to hear speech"><ol class="steps"><li><a href="#offline-files">1 · Download</a></li><li><a href="#model">2 · Load model</a></li><li><a href="#speech">3 · Speak</a></li></ol></nav>
   <p id="next-step" class="callout" role="status" aria-live="polite">Preparing step 1: download speech files.</p>
   <section id="offline-files" aria-labelledby="offline-title">
     <h2 id="offline-title">1. Download speech files</h2>
-    <p>Start here: press <strong>Download for offline use</strong>. This saves the model and voices to disk once; it does not load them into RAM.</p>
+    <p id="download-help">Start here: press <strong>Download for offline use</strong>. This saves the model and voices to disk once; it does not load them into RAM.</p>
     <p id="offline-state" role="status">Checking saved files…</p>
     <div class="row">
       <button id="save-offline" class="primary" disabled>Download for offline use</button>
+      <button id="unload-saved-model" hidden>Unload model · free RAM</button>
+      <button id="delete-offline" disabled>Delete offline files · free disk</button>
       <button id="cancel-download" hidden>Cancel download</button>
     </div>
     <progress id="download-progress" aria-label="Offline download progress" max="1" value="0" hidden></progress>
@@ -37,14 +40,13 @@
     <div class="row">
       <button id="load-model" class="primary" disabled>Load model</button>
       <button id="unload-model" disabled>Unload model · free RAM</button>
-      <button id="delete-offline" disabled>Delete offline files</button>
     </div>
     <small>Unloading keeps your saved files for quick offline reuse. Deleting removes the downloaded model, voices and libraries and unloads RAM. Only the small page shell remains; offline speech will need another download.</small>
     <details><summary>Storage details</summary><p id="storage-detail">Saved-file sizes exclude browser bookkeeping and temporary files.</p><p id="origin-usage"></p></details>
   </section>
   <section id="speech" aria-labelledby="speech-title">
     <h2 id="speech-title">3. Type text and hear speech</h2>
-    <p>Choose a voice and press <strong>Speak</strong>. Speak prepares the audio and plays it when ready. Save WAV keeps the completed file. Progress is shown below while it is preparing.</p>
+    <p>Choose a voice and press <strong>Speak</strong>. Speak prepares and plays the audio. Recent text-and-voice combinations replay instantly from the beginning without loading or running the model. Save WAV keeps the completed file. Progress is shown below while it is preparing.</p>
     <label for="text">Text to speak (up to 20,000 characters)</label>
     <textarea id="text" maxlength="20000">Hello! This speech stays on your device, even when you are offline.</textarea>
     <div class="row">
@@ -53,6 +55,8 @@
       <button id="cancel" disabled>Cancel speech</button>
       <a id="download" class="button primary" aria-disabled="true" download="offline-speech.wav">Save WAV</a>
     </div>
+    <p id="audio-cache-info" class="muted"></p>
+    <button id="clear-audio-cache" disabled>Clear audio cache · free RAM</button>
     <audio id="audio" hidden></audio>
     <div id="speech-preparation" hidden>
       <p id="speech-stage" role="status" aria-live="polite"></p>

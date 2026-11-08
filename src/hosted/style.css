@@ -1,6 +1,8 @@
 /* PRN UI palette and chamfer geometry, adapted from dkorolev/prnui (MIT).
    Source revision and license are included in the dependency disclosure. */
-:root { color-scheme:dark; --bg:#0d1117; --fg:#e6edf3; --muted:#a2abb7; --line:#2a3140; --card:#161b22; --accent:#d29922; }
+:root { color-scheme:light; --bg:#f6f7f9; --fg:#18202b; --muted:#4e5968; --line:#c2c9d3; --card:#fff; --accent:#d29922; --link:#875800; }
+@media(prefers-color-scheme:dark) { :root:not([data-theme="light"]) { color-scheme:dark; --bg:#0d1117; --fg:#e6edf3; --muted:#a2abb7; --line:#2a3140; --card:#161b22; --accent:#d29922; --link:#e9b84b; } }
+:root[data-theme="dark"] { color-scheme:dark; --bg:#0d1117; --fg:#e6edf3; --muted:#a2abb7; --line:#2a3140; --card:#161b22; --accent:#d29922; --link:#e9b84b; }
     * { box-sizing:border-box; }
     body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui,sans-serif; }
     main { max-width:760px; margin:auto; padding:32px 16px; }
@@ -24,10 +26,10 @@
 .license-table { overflow-x:auto; } th,td { text-align:left; padding:6px; vertical-align:top; overflow-wrap:anywhere; } pre { white-space:pre-wrap; overflow-wrap:anywhere; }
 
 h1,h2,.metrics dd { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
-a { color:#e9b84b; }
+a { color:var(--link); }
 button,a.button { --cut:5px; clip-path:polygon(var(--cut) 0,calc(100% - var(--cut)) 0,100% var(--cut),100% calc(100% - var(--cut)),calc(100% - var(--cut)) 100%,var(--cut) 100%,0 calc(100% - var(--cut)),0 var(--cut)); min-height:44px; }
 button:focus-visible,a.button:focus-visible { outline:none; box-shadow:inset 0 0 0 3px var(--fg); }
-a:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+a:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible { outline:2px solid var(--link); outline-offset:3px; }
 button:not(:disabled):hover,a.button:not([aria-disabled="true"]):hover { filter:brightness(1.15); }
 .steps { display:flex; flex-wrap:wrap; gap:8px 24px; padding:0; list-style:none; font-family:ui-monospace,monospace; }
 .steps a { display:inline-block; padding:8px 0; }

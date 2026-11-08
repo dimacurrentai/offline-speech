@@ -17,7 +17,7 @@ export const RUNTIME_DEPENDENCIES = [
   ["onnxruntime-common (inside Transformers.js)", "1.21.0", "MIT", "https://github.com/microsoft/onnxruntime/tree/v1.21.0"],
   ["@huggingface/jinja (inside Transformers.js)", "0.5.3", "MIT", "https://github.com/huggingface/huggingface.js"],
 ];
-export function renderLicenses(root) {
+export function renderLicenses(root, { inlineTexts = true } = {}) {
   const lock = JSON.parse(fs.readFileSync(path.join(root, "package-lock.json"), "utf8"));
   const packages = [...new Map(Object.entries(lock.packages).filter(([key]) => key).map(([key, pkg]) => {
     const name = pkg.name || key.split("node_modules/").at(-1);
@@ -27,12 +27,13 @@ export function renderLicenses(root) {
   const notices = fs.readFileSync(path.join(root, "THIRD_PARTY_NOTICES.txt"), "utf8");
   const license = fs.readFileSync(path.join(root, "LICENSE"), "utf8");
   return `<section id="licenses" aria-labelledby="licenses-title"><h2 id="licenses-title">Licenses and dependencies</h2>
+<p>Copyright © 2026 Dima Korolev &lt;dmitry.korolev@gmail.com&gt;.</p>
 <p><strong>offline-speech’s own code is licensed under GPL-3.0-or-later</strong> (GNU General Public License version 3 or later). Third-party components retain their respective licenses.</p>
 <ul><li><strong>Speech model: <a href="https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX">onnx-community/Kokoro-82M-v1.0-ONNX</a> — Apache-2.0.</strong> Kokoro generates speech; the bundled model and six voice files use this license.</li>
 <li><strong>Text-to-phoneme engine: <a href="https://github.com/espeak-ng/espeak-ng">espeak-ng/espeak-ng (eSpeak NG)</a> — GPL-3.0-or-later.</strong> Its code and language data are embedded through phonemizer. The phonemizer JavaScript wrapper separately uses Apache-2.0.</li></ul>
-<details><summary>Browser code, model and voice dependencies</summary>${table(RUNTIME_DEPENDENCIES)}<p>Included voices: ${escape(VOICES.map(v => v.id).join(", "))}. Browser bundles are fetched with pinned SHA-256 hashes. offline-speech changes packaging/imports and hosted voice caching.</p><p>The full ONNX Runtime notices below include its upstream dependency inventory across runtime variants. They are a superset, not a claim that every listed native library ships in this browser build. The exact embedded eSpeak NG engine revision is not identified by the published phonemizer bundle.</p></details>
+<details><summary>Browser code, model and voice dependencies</summary>${table(RUNTIME_DEPENDENCIES)}<p>Included voices: ${escape(VOICES.map(v => v.id).join(", "))}. Browser bundles are fetched with pinned SHA-256 hashes. offline-speech changes packaging/imports, adds an explicit phoneme-progress callback, and manages hosted voice caching.</p><p>The full ONNX Runtime notices below include its upstream dependency inventory across runtime variants. They are a superset, not a claim that every listed native library ships in this browser build. The exact embedded eSpeak NG engine revision is not identified by the published phonemizer bundle.</p></details>
 <details><summary>Development and test dependencies (${packages.length} npm packages)</summary><p>These tools are not shipped to app visitors. Node.js 20 or later supplies build utilities; puppeteer-core and its complete locked dependency graph support browser tests. Tests use a separately installed Chrome/Chromium browser under that distribution’s own licenses.</p>${table(packages)}</details>
-<details><summary>offline-speech license — full GPL version 3 text</summary><p>You may use version 3 or any later version of the GNU GPL for offline-speech’s own code.</p><pre>${escape(license)}</pre></details>
-<details><summary>Third-party notices — full license texts and upstream dependency inventory</summary><pre>${escape(notices)}</pre></details>
+${inlineTexts ? `<details><summary>offline-speech license — full GPL version 3 text</summary><p>You may use version 3 or any later version of the GNU GPL for offline-speech’s own code.</p><pre>${escape(license)}</pre></details>
+<details><summary>Third-party notices — full license texts and upstream dependency inventory</summary><pre>${escape(notices)}</pre></details>` : `<p><a href="./LICENSE.txt">Full offline-speech license</a> · <a href="./THIRD_PARTY_NOTICES.txt">Full third-party notices and license texts</a>. Both files are saved with the page for offline reading.</p>`}
 <p>When redistributing this app, preserve notices and meet applicable GPL corresponding-source requirements. Source links identify upstream projects; notices alone do not supply corresponding source for a particular build. A separate HTML page does not by itself determine the license obligations of a containing site. <a href="https://www.gnu.org/licenses/gpl-faq.html#MereAggregation">GNU GPL guidance on separate and combined works</a>.</p></section>`;
 }

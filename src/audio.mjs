@@ -119,20 +119,14 @@ export async function generateSpeechPieces(tts, plan, voice, report, isCancelled
       const chunk = chunks[index];
       const position = { current: index + 1, sentence: chunk.sentence };
       emit("phonemes", position);
-      // The tokenizer is called after Kokoro's own normalization + phonemization.
-      // Observe that real boundary rather than duplicating its phonemizer logic.
-      const tokenizer = tts.tokenizer;
-      if (typeof tokenizer === "function") tts.tokenizer = new Proxy(tokenizer, {
-        apply(target, receiver, args) {
-          const result = Reflect.apply(target, receiver, args);
-          phonemized++;
-          emit("generating", { ...position, phonemes: args[0] });
-          return result;
-        },
-      });
-      let output;
-      try { output = await tts.generate(chunk.text, { voice }); }
-      finally { tts.tokenizer = tokenizer; }
+      let notified = false;
+      const output = await tts.generate(chunk.text, { voice, onPhonemes(phonemes) {
+        if (notified || typeof phonemes !== "string") throw new Error("Invalid Kokoro phoneme-progress callback");
+        notified = true;
+        phonemized++;
+        emit("generating", { ...position, phonemes });
+      } });
+      if (!notified) throw new Error("Kokoro did not report phoneme progress; rebuild with a supported phoneme-progress adapter");
       if (!output.audio?.length) throw new Error("The model returned empty audio");
       if (sampleRate !== undefined && sampleRate !== output.sampling_rate) throw new Error("The model changed sample rate between chunks");
       sampleRate = output.sampling_rate;
@@ -178,4 +172,52 @@ export function renderSpeechProgress(event) {
     row.setAttribute("aria-current", stage === "completed" ? "false" : "step");
     row.lastChild.textContent = stage === "completed" ? `${event.sentenceWords} / ${row.dataset.words} words complete` : stage === "phonemes" ? "Generating phonemes…" : "Generating speech…";
   }
+}
+
+export function setupTheme() {
+  const select = document.getElementById("theme");
+  try {
+    const saved = localStorage.getItem("offline-speech:theme");
+    if (["system", "light", "dark"].includes(saved)) select.value = saved;
+  } catch { /* Theme selection still works when browser storage is unavailable. */ }
+  const apply = () => {
+    document.documentElement.dataset.theme = select.value;
+    try { localStorage.setItem("offline-speech:theme", select.value); } catch { /* Optional preference only. */ }
+  };
+  select.addEventListener("change", apply);
+  apply();
+}
+
+// Keep recent WAVs in tab memory, never in persistent browser storage.
+export function createSpeechCache(limit = 10) {
+  const entries = new Map();
+  const keyFor = (text, voice) => JSON.stringify([text, voice]);
+  return {
+    has(text, voice) { return entries.has(keyFor(text, voice)); },
+    get(text, voice) {
+      const key = keyFor(text, voice), entry = entries.get(key);
+      if (entry) { entries.delete(key); entries.set(key, entry); }
+      return entry?.url;
+    },
+    put(text, voice, wav) {
+      const key = keyFor(text, voice), url = URL.createObjectURL(wav);
+      if (entries.has(key)) URL.revokeObjectURL(entries.get(key).url);
+      entries.delete(key);
+      entries.set(key, { url, bytes: wav.size });
+      while (entries.size > limit) {
+        const oldest = entries.keys().next().value;
+        URL.revokeObjectURL(entries.get(oldest).url);
+        entries.delete(oldest);
+      }
+      return url;
+    },
+    clear() { for (const entry of entries.values()) URL.revokeObjectURL(entry.url); entries.clear(); },
+    stats() { return { count: entries.size, bytes: [...entries.values()].reduce((sum, entry) => sum + entry.bytes, 0) }; },
+  };
+}
+
+export function renderSpeechCache(cache) {
+  const { count, bytes } = cache.stats();
+  document.getElementById("audio-cache-info").textContent = `Recent audio: ${count} / 10 text-and-voice combinations · ${(bytes / 1024 ** 2).toFixed(2)} MiB of cached WAVs in this tab’s RAM. No disk storage; closing this tab clears it. Audio decoding can use additional RAM.`;
+  document.getElementById("clear-audio-cache").disabled = !count;
 }

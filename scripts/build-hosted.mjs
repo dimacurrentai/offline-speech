@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Build a relocatable static app. Every payload is below 8 MiB for static hosts.
 import fs from "node:fs";
+import { withPhonemeProgress } from "./kokoro.mjs";
 import { renderLicenses } from "./licenses.mjs";
 import path from "node:path";
 import { createHash } from "node:crypto";
@@ -12,7 +13,7 @@ import { verifyFile } from "./files.mjs";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const CHUNK_BYTES = 8 * 1024 * 1024;
-const SHELL = ["index.html", "app.js", "storage.js", "tts-worker.js", "audio.js", "manifest.js", "style.css", "favicon.svg", "THIRD_PARTY_NOTICES.txt"];
+const SHELL = ["index.html", "app.js", "storage.js", "tts-worker.js", "audio.js", "manifest.js", "style.css", "favicon.svg", "LICENSE.txt", "THIRD_PARTY_NOTICES.txt"];
 
 export async function buildHosted({ root = ROOT, output = path.join(root, "dist", "hosted") } = {}) {
   output = path.resolve(output);
@@ -51,6 +52,7 @@ export async function buildHosted({ root = ROOT, output = path.join(root, "dist"
       writeAsset(source.key, fs.readFileSync(path.join(root, source.file)), source.type, path.basename(source.file), source.kind);
     }
     let kokoro = fs.readFileSync(path.join(root, LIBRARY_FILES.find((asset) => asset.name === "kokoro-js").file), "utf8");
+    kokoro = withPhonemeProgress(kokoro);
     for (const [specifier, asset] of [
       ["@huggingface/transformers", assets.find((asset) => asset.key === "@huggingface/transformers")],
       ["phonemizer", assets.find((asset) => asset.key === "phonemizer")], ["path", shim], ["fs/promises", shim],
@@ -68,7 +70,8 @@ export async function buildHosted({ root = ROOT, output = path.join(root, "dist"
     const files = Object.fromEntries(sourceNames.map((name) => [name, fs.readFileSync(path.join(root, "src", "hosted", name), "utf8")]));
     files["audio.js"] = fs.readFileSync(path.join(root, "src", "audio.mjs"), "utf8");
     files["THIRD_PARTY_NOTICES.txt"] = fs.readFileSync(path.join(root, "THIRD_PARTY_NOTICES.txt"), "utf8");
-    files["index.html"] = files["index.html"].replace("<!--LICENSES-->", () => renderLicenses(root));
+    files["index.html"] = files["index.html"].replace("<!--LICENSES-->", () => renderLicenses(root, { inlineTexts: false }));
+    files["LICENSE.txt"] = fs.readFileSync(path.join(root, "LICENSE"), "utf8");
     const id = hash(JSON.stringify({ files, assets })).slice(0, 16);
     const shell = SHELL.map((name) => name.endsWith(".js") ? `${name}?v=${id}` : name);
     files["manifest.js"] = `export const MANIFEST = ${JSON.stringify({ id, dataId: hash(JSON.stringify(assets)).slice(0, 16), modelId: MODEL_ID, voices: VOICES, assets, shell }, null, 2)};\n`;

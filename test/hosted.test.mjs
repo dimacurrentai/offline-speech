@@ -120,6 +120,12 @@ test("a subdirectory bookmark survives a cold offline browser and lets users rec
     assert.ok(!/^Error/.test(await status(page)), await status(page));
     assert.match(await page.$eval("#next-step", el => el.textContent), /Step 1 of 3.*Download/);
     assert.equal(await page.$eval("#save-offline", el => getComputedStyle(el).backgroundColor), "rgb(210, 153, 34)");
+    await page.emulateMediaFeatures([{ name: "prefers-color-scheme", value: "dark" }]);
+    assert.equal(await page.$eval("body", el => getComputedStyle(el).backgroundColor), "rgb(13, 17, 23)");
+    await page.select("#theme", "light");
+    assert.equal(await page.$eval("body", el => getComputedStyle(el).backgroundColor), "rgb(246, 247, 249)");
+    await page.select("#theme", "dark");
+    assert.equal(await page.$eval("body", el => getComputedStyle(el).backgroundColor), "rgb(13, 17, 23)");
     const upgrade = await page.evaluate(async ({ obsolete, current }) => ({
       removedOld: !(await caches.has(obsolete)),
       keptCurrent: await (await caches.open(current)).match(new URL("current-marker", location.href)).then((r) => r?.text()),
@@ -168,9 +174,18 @@ test("a subdirectory bookmark survives a cold offline browser and lets users rec
     assert.equal(await page.$eval("#download", el => el.href), downloadUrl, "Speak retries playback without regenerating the file");
     const diskBefore = await page.$eval("#disk-usage", (el) => el.textContent);
     const stopped = new Promise((resolve) => page.once("workerdestroyed", resolve));
-    await page.click("#unload-model");
+    assert.equal(await page.$eval("#unload-saved-model", el => el.hidden), false);
+    assert.match(await page.$eval("#offline-state", el => el.textContent), /model loaded in RAM/);
+    await page.click("#unload-saved-model");
     await stopped;
     assert.equal(await page.$eval("#ram-usage", (el) => el.textContent), "Model unloaded");
+    assert.equal(await page.$eval("#unload-saved-model", el => el.hidden), true);
+    assert.match(await page.$eval("#offline-state", el => el.textContent), /model not loaded in RAM/);
+    await page.click("#speak");
+    await waitState(page, () => document.querySelector("#status").textContent === "Done — playing the prepared speech.");
+    assert.equal(page.workers().length, 0, "replay must not restart the unloaded inference worker");
+    await page.$eval("#text", el => { el.value += " Changed."; el.dispatchEvent(new Event("input")); });
+    assert.equal(await page.$eval("#speak", el => el.disabled), true, "changed text requires the model to be loaded");
     assert.equal(await page.$eval("#disk-usage", (el) => el.textContent), diskBefore);
     assert.equal(await page.$eval("#download", (el) => el.href), downloadUrl);
     assert.ok(!(await page.evaluate(() => caches.keys())).includes("kokoro-voices"));
@@ -184,8 +199,19 @@ test("a subdirectory bookmark survives a cold offline browser and lets users rec
     const navigation = await page.goto(url);
     assert.equal(navigation.fromServiceWorker(), true);
     await waitState(page, () => !document.querySelector("#load-model").disabled);
+    assert.equal(await page.$eval("#theme", el => el.value), "dark");
+    const offlineNotices = await page.evaluate(async () => Promise.all(["LICENSE.txt", "THIRD_PARTY_NOTICES.txt"].map(async file => {
+      const response = await fetch(file); return { ok: response.ok, text: await response.text() };
+    })));
+    assert.ok(offlineNotices.every(file => file.ok));
+    assert.match(offlineNotices[0].text, /Copyright \(C\) 2026 Dima Korolev/);
+    assert.match(offlineNotices[1].text, /eSpeak NG/);
     await readyModel(page);
     await speak(page);
+    assert.match(await page.$eval("#audio-cache-info", el => el.textContent), /1 \/ 10/);
+    await page.click("#clear-audio-cache");
+    assert.match(await page.$eval("#audio-cache-info", el => el.textContent), /0 \/ 10/);
+    assert.equal(await page.$eval("#speak", el => el.disabled), false, "clearing clips keeps the loaded model ready");
     console.log("[hosted] Verified cold-browser offline navigation and real speech");
     await page.evaluate(async () => {
       const foreign = await caches.open("parent-application");

@@ -2,6 +2,8 @@
 
 Browser text-to-speech with two build targets: a small hosted page that saves its speech files for offline use, and a standalone HTML file that opens directly from disk. Speech runs on the user's device; text and generated audio are never sent to a server.
 
+Copyright © 2026 Dima Korolev <dmitry.korolev@gmail.com>.
+
 offline-speech’s own code: **GPL-3.0-or-later** ([LICENSE](LICENSE)). Bundled dependencies keep their own licenses; see the disclosure in each built page and the inventory below.
 
 ## Deploy from a Git submodule
@@ -56,7 +58,7 @@ Cancelled or failed downloads retain completed, verified pieces. Choose Download
 
 The page shows saved offline payload and shell bytes. Storage details also show the browser's estimate for the **entire origin**, which can include other apps, bookkeeping, and browser-managed files. Saved file sizes are measurable; exact per-app physical disk allocation is not exposed by the browser.
 
-- **Unload model · free RAM** terminates the dedicated inference worker. Downloaded files remain available for loading offline again, and the last generated WAV is preserved. Browser/OS memory reclamation may be gradual.
+- **Unload model · free RAM** terminates the dedicated inference worker. Downloaded files remain available for loading offline again, and cached WAVs are preserved. The same unload action is shown beside the saved-files status while the model worker is running. Browser/OS memory reclamation may be gradual.
 - **Delete offline files** aborts any download, terminates inference, and deletes this app's cached model, voices and libraries, including partial downloads and older versions. Other open tabs of the same app are notified to stop their workers. Only the small page shell (under 1 MiB) remains, so the bookmark can explain that another download is needed. Other applications' storage is untouched.
 
 RAM is shown as a browser estimate when `performance.measureUserAgentSpecificMemory()` is available and the page is cross-origin isolated. Otherwise the page explicitly labels its roughly 1 GiB desktop model/runtime figure as an **estimate**, not a device measurement. It never presents `performance.memory` as total RAM. When unloaded, the page says the model is stopped; the UI and generated audio still use some memory. The runtime's actual RAM varies by browser and device.
@@ -94,6 +96,21 @@ Set `CHROME_PATH` when Chrome/Chromium is not found automatically. In containers
 
 The standalone suite checks all six voices with external requests blocked. Hosted tests use a nested deployment path, interrupt and resume a download, verify progress and payload hashes, unload real workers, close the browser, stop the HTTP server, reopen the bookmark in a new offline browser process, and synthesize a real WAV. They also delete files offline, verify that the small shell still opens, check that a foreign app's cache survives, reinstall files, and verify cross-tab unloading.
 
+The included workflow already caches `models/` and `vendor/` separately. For a parent repository that uses this project as a submodule, cache its downloaded files before the download/build steps:
+
+```yaml
+- uses: actions/cache@v4
+  with:
+    path: |
+      third_party/offline-speech/models/
+      third_party/offline-speech/vendor/
+    key: offline-speech-assets-${{ runner.os }}-${{ hashFiles('third_party/offline-speech/src/assets.mjs', 'third_party/offline-speech/src/model-integrity.mjs') }}
+- run: node third_party/offline-speech/scripts/download-assets.mjs
+- run: node third_party/offline-speech/scripts/build-hosted.mjs
+```
+
+Adjust the submodule path to match your checkout. Do not cache generated output in Git; downloads are still verified against pinned SHA-256 hashes after restoration.
+
 Successful CI runs retain builds for 30 days. A `v*` tag publishes the tested standalone HTML, a deployable hosted archive, checksums, and notices as a GitHub release. Release assets will appear on the [releases page](https://github.com/dimacurrentai/offline-speech/releases) when a version tag is published.
 
 ## Implementation
@@ -106,7 +123,11 @@ Successful CI runs retain builds for 30 days. A `v*` tag publishes the tested st
 - `src/hosted/app.js` handles downloads, progress, resource reporting, controls and WAV playback.
 - `scripts/build.mjs`, `src/app.js`, `src/audio.mjs` and `src/unpack.mjs` preserve the standalone HTML target.
 
-The UI adapts the dark palette and chamfered controls from [PRN UI](https://github.com/dkorolev/prnui/tree/986d93b681cb49f28b8fcd3069e2b3a04dad1a3f) (MIT). Orange buttons mark the main actions. The hosted page explains Download → Load model → Speak and shows the current step. Both builds use Speak and Save WAV without a player bar. Preparation shows sentence breaks, real phoneme-generation stages, phoneme text, and completed-word counts. Counts advance when a sentence or long-sentence chunk completes; Kokoro does not expose individual-word completion.
+The UI adapts the PRN palette and chamfered controls from [PRN UI](https://github.com/dkorolev/prnui/tree/986d93b681cb49f28b8fcd3069e2b3a04dad1a3f) (MIT). Orange buttons mark the main actions. The hosted page explains Download → Load model → Speak and shows the current step.
+
+Both builds offer System, Light, and Dark themes, remember the choice when browser settings allow, and use Speak and Save WAV without a player bar. Speak caches the ten most recently used exact text-and-voice combinations and replays hits from the beginning without inference, including after the hosted model is unloaded. New combinations generate new audio; the least recently used clip is evicted at the limit. The page shows cached WAV bytes and offers Clear audio cache to release them. This cache lives only in tab memory, uses no persistent disk storage, and clears on tab close or reload.
+
+Preparation shows sentence breaks, real phoneme-generation stages through an explicit callback added to the pinned Kokoro build, phoneme text, and completed-word counts. Counts advance when a sentence or long-sentence chunk completes; Kokoro does not expose individual-word completion. The build rejects a changed Kokoro implementation until its adapter is reviewed, and a missing callback raises an explicit error instead of silently dropping progress.
 
 ## Third-party components
 
@@ -128,6 +149,6 @@ Kokoro is the speech model; eSpeak NG is the text-to-phoneme engine. These are s
 
 **The built HTML includes eSpeak NG code licensed under GPL-3.0-or-later (GNU General Public License version 3 or later).** This GPL-covered code is part of the HTML you share. It is bundled by phonemizer; the phonemizer wrapper's Apache-2.0 license is separate from the eSpeak NG license. The full GPL text is included in the HTML's notices, and the [eSpeak NG source](https://github.com/espeak-ng/espeak-ng) is available upstream.
 
-`THIRD_PARTY_NOTICES.txt` contains upstream attributions, licenses, and ONNX Runtime dependency notices. The same text is embedded in the standalone HTML under **Licenses and dependencies**, so it travels with the file. The phonemizer wrapper and its embedded eSpeak NG code have different licenses; both are identified there. offline-speech’s own code is licensed under **GPL-3.0-or-later**; see [LICENSE](LICENSE). Third-party licenses remain unchanged. Both HTML builds include a visible license summary, browser dependency inventory, all locked npm development/test dependencies, and full license texts available offline. The npm tools are not shipped to app visitors.
+`THIRD_PARTY_NOTICES.txt` contains upstream attributions, licenses, and ONNX Runtime dependency notices. The same text is embedded in the standalone HTML under **Licenses and dependencies**, so it travels with the file. The phonemizer wrapper and its embedded eSpeak NG code have different licenses; both are identified there. offline-speech’s own code is licensed under **GPL-3.0-or-later**; see [LICENSE](LICENSE). Third-party licenses remain unchanged. Both HTML builds include a visible license summary, browser dependency inventory, all locked npm development/test dependencies, and full license texts available offline. The hosted page links to separately cached `LICENSE.txt` and `THIRD_PARTY_NOTICES.txt` files to keep its HTML small; the standalone HTML embeds the full texts for portability. The npm tools are not shipped to app visitors.
 
 Distributors must preserve notices and satisfy applicable GPL corresponding-source obligations; notices and upstream links alone are not a complete corresponding-source distribution. A separate HTML page does not automatically settle whether other code is a separate or combined work; see the [GNU GPL FAQ](https://www.gnu.org/licenses/gpl-faq.html#MereAggregation). The published phonemizer bundle does not identify its exact embedded eSpeak NG revision. ONNX Runtime’s full upstream notices cover multiple runtime variants, so their native dependency inventory is a superset of this browser build.

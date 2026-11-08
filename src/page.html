@@ -6,7 +6,9 @@
   <title>offline-speech</title>
   <style>
     /* PRN UI palette adapted from dkorolev/prnui; see bundled MIT notice. */
-    :root { color-scheme:dark; --bg:#0d1117; --fg:#e6edf3; --muted:#a2abb7; --line:#2a3140; --accent:#d29922; --card:#161b22; }
+    :root { color-scheme:light; --bg:#f6f7f9; --fg:#18202b; --muted:#4e5968; --line:#c2c9d3; --card:#fff; --accent:#d29922; --link:#875800; }
+@media(prefers-color-scheme:dark) { :root:not([data-theme="light"]) { color-scheme:dark; --bg:#0d1117; --fg:#e6edf3; --muted:#a2abb7; --line:#2a3140; --card:#161b22; --accent:#d29922; --link:#e9b84b; } }
+:root[data-theme="dark"] { color-scheme:dark; --bg:#0d1117; --fg:#e6edf3; --muted:#a2abb7; --line:#2a3140; --card:#161b22; --accent:#d29922; --link:#e9b84b; }
     * { box-sizing: border-box; }
     body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, -apple-system, sans-serif; }
     main { max-width: 680px; margin: 0 auto; padding: 32px 16px; }
@@ -24,8 +26,8 @@
     label { display: block; margin-bottom: 6px; }
     details { margin-top: 24px; color: var(--muted); font-size: 12px; }
     .license-table { overflow-x:auto; } th,td { text-align:left; padding:6px; vertical-align:top; overflow-wrap:anywhere; }
-    a { color:#e9b84b; }
-    button:focus-visible,a:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+    a { color:var(--link); }
+    button:focus-visible,a:focus-visible { outline:2px solid var(--link); outline-offset:3px; }
     progress { width:100%; accent-color:var(--accent); } .sentence-progress { max-height:240px; overflow:auto; } .sentence-progress small { display:block; }
     pre { white-space: pre-wrap; overflow-wrap: anywhere; }
     #status { color: var(--muted); font-size: 14px; min-height: 1.5em; }
@@ -34,8 +36,9 @@
 <body>
   <main>
     <h1>offline-speech</h1>
+  <div class="row"><label for="theme">Theme</label><select id="theme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></div>
     <p class="sub">Type text, hear it spoken, save it as a WAV file. The voice model runs inside this page; nothing is sent anywhere.</p>
-    <p>The embedded model loads automatically. Wait for Ready, then press the orange <strong>Speak</strong> button to hear your text.</p>
+    <p>The embedded model loads automatically. Wait for Ready, then press the orange <strong>Speak</strong> button to hear your text. Unchanged text and voice replay the existing audio instantly from the beginning.</p>
     <label for="text">Text to speak (up to 20,000 characters)</label>
     <textarea id="text" maxlength="20000">Hello! This voice was generated entirely inside a single HTML file, with no network at all.</textarea>
     <div class="row">
@@ -44,6 +47,8 @@
       <button id="cancel" disabled>Cancel</button>
       <a id="download" class="button primary" aria-disabled="true" download="offline-speech.wav">Save WAV</a>
     </div>
+    <p id="audio-cache-info" class="muted"></p>
+    <button id="clear-audio-cache" disabled>Clear audio cache · free RAM</button>
     <audio id="audio" hidden></audio>
     <div id="speech-preparation" hidden>
       <p id="speech-stage" role="status" aria-live="polite"></p>

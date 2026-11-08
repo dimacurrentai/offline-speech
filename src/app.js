@@ -24,6 +24,7 @@
   const nodeShim = URL.createObjectURL(new Blob(["export default undefined;"], { type: "text/javascript" }));
 
   /*AUDIO_HELPERS*/
+  setupTheme();
 
   let tts;
   try {
@@ -75,7 +76,9 @@
     return;
   }
 
-  let wavUrl = null, pendingPlayback;
+  let wavUrl = null;
+  const speechCache = createSpeechCache();
+  renderSpeechCache(speechCache);
   let busy = false;
   let cancelled = false;
   async function speak() {
@@ -85,14 +88,22 @@
     const plan = planSpeech(text);
     if (!plan.chunks.length) return setStatus("Type something to speak.");
     const voice = $("voice").value;
-    if (pendingPlayback && pendingPlayback.text === text && pendingPlayback.voice === voice) {
-      $("audio").play().then(() => { pendingPlayback = undefined; setStatus("Done — playing the prepared speech."); })
-        .catch(() => setStatus("Error: audio playback is blocked. Choose Save WAV to hear the saved file."));
+    const cachedUrl = speechCache.get(text, voice);
+    if (cachedUrl) {
+      $("speech-preparation").hidden = true;
+      wavUrl = cachedUrl;
+      $("download").href = cachedUrl;
+      $("download").setAttribute("aria-disabled", "false");
+      if ($("audio").src !== cachedUrl) $("audio").src = cachedUrl;
+      $("audio").pause();
+      $("audio").currentTime = 0;
+      $("audio").play().then(() => { if (wavUrl === cachedUrl && !busy) setStatus("Done — playing the prepared speech."); })
+        .catch(() => { if (wavUrl === cachedUrl && !busy) setStatus("Error: audio playback is blocked. Choose Save WAV to hear the saved file."); });
       return;
     }
-    pendingPlayback = undefined;
     $("audio").pause();
     busy = true;
+    $("clear-audio-cache").disabled = true;
     cancelled = false;
     $("speak").disabled = true;
     $("voice").disabled = true;
@@ -107,12 +118,10 @@
       if (!result) return setStatus("Cancelled.");
       const { pieces, sampleRate } = result;
       const wav = encodeWav(pieces, sampleRate, GAP_SECONDS);
-      const previousUrl = wavUrl;
-      wavUrl = URL.createObjectURL(wav);
+      wavUrl = speechCache.put(text, voice, wav);
       $("audio").src = wavUrl;
       $("download").href = wavUrl;
       $("download").setAttribute("aria-disabled", "false");
-      if (previousUrl) URL.revokeObjectURL(previousUrl);
       const took = ((performance.now() - started) / 1000).toFixed(1);
       const duration = (wav.size - 44) / 2 / sampleRate;
       setStatus(`Done — ${duration.toFixed(1)}s of audio at ${sampleRate} Hz, made in ${took}s.`);
@@ -120,7 +129,6 @@
       const currentAudio = wavUrl;
       $("audio").play().catch(() => {
         if (wavUrl === currentAudio) {
-          pendingPlayback = { text, voice };
           setStatus("Done — audio ready. Press Speak again to hear it, or Save WAV. Automatic playback was blocked.");
         }
       });
@@ -129,6 +137,7 @@
       setStatus(cancelled ? "Cancelled." : `Error: ${err?.message ?? err}`);
     } finally {
       busy = false;
+      renderSpeechCache(speechCache);
       $("speak").disabled = false;
       $("voice").disabled = false;
       $("cancel").disabled = $("audio").paused;
@@ -144,6 +153,14 @@
   });
   for (const event of ["play", "pause", "ended"]) $("audio").addEventListener(event, () => {
     if (!busy) { $("cancel").disabled = $("audio").paused; $("cancel").textContent = "Stop"; }
+  });
+  $("clear-audio-cache").addEventListener("click", () => {
+    if (busy) return;
+    $("audio").pause(); $("audio").removeAttribute("src"); $("audio").load();
+    speechCache.clear(); wavUrl = null; renderSpeechCache(speechCache);
+    $("download").removeAttribute("href"); $("download").setAttribute("aria-disabled", "true");
+    $("speech-preparation").hidden = true;
+    setStatus("Audio cache cleared. The model remains loaded.");
   });
   $("speak").addEventListener("click", speak);
   $("text").addEventListener("keydown", (e) => {

@@ -1,4 +1,4 @@
-import { renderSpeechProgress } from "./audio.js";
+import { renderSpeechProgress, setupTheme, createSpeechCache, renderSpeechCache } from "./audio.js";
 import { MANIFEST } from "./manifest.js";
 import { BASE, PREFIX, SHELL_CACHE, TOTAL_BYTES, getUsage, installAssets, deleteAssets, versioned } from "./storage.js";
 
@@ -7,7 +7,9 @@ const format = (bytes) => bytes < 1024 ** 2 ? `${(bytes / 1024).toFixed(1)} KiB`
 const setStatus = (text) => { $("status").textContent = text; };
 let usage = { dataBytes: 0, shellBytes: 0, savedBytes: 0, complete: false };
 let refreshSequence = 0;
-let shellReady = false, deleting = false, worker, ready = false, speaking = false, installation, abortDownload, wavUrl, pendingPlayback;
+let shellReady = false, deleting = false, worker, ready = false, speaking = false, installation, abortDownload, wavUrl;
+const speechCache = createSpeechCache();
+setupTheme();
 const channel = typeof BroadcastChannel === "function" ? new BroadcastChannel(PREFIX) : null;
 for (const { id, label } of MANIFEST.voices) $("voice").add(new Option(label, id));
 
@@ -17,12 +19,26 @@ function controls() {
   $("cancel-download").hidden = !installation;
   $("load-model").disabled = !usage.complete || !!worker || deleting || !!installation;
   $("unload-model").disabled = !worker;
+  $("unload-saved-model").hidden = !worker;
+  $("unload-saved-model").disabled = !worker;
+  if (usage.complete && shellReady && !installation) {
+    $("offline-state").textContent = ready
+      ? "Ready offline: files saved on disk, model loaded in RAM. Unload the model to free RAM; delete offline files to free disk."
+      : worker ? "Ready offline: files saved on disk; model is loading into RAM. You can unload it to stop loading."
+      : "Ready offline: files saved on disk, model not loaded in RAM. Bookmark this page, then choose Load model when you want speech.";
+  }
+  $("download-help").textContent = usage.complete
+    ? "Your speech files are already saved on disk. Keep them for offline reuse, or delete them to reclaim disk. Unloading RAM keeps the saved files."
+    : "Start here: press Download for offline use. This saves the model and voices to disk once; it does not load them into RAM.";
   $("delete-offline").disabled = deleting || (!usage.dataBytes && !installation);
-  $("speak").disabled = !ready || speaking || deleting;
+  const canReplay = speechCache.has($("text").value, $("voice").value);
+  renderSpeechCache(speechCache);
+  $("clear-audio-cache").disabled ||= speaking;
+  $("speak").disabled = (!ready && !canReplay) || speaking || deleting;
   $("voice").disabled = speaking;
   $("cancel").disabled = !speaking && $("audio").paused;
   $("cancel").textContent = speaking ? "Cancel preparation" : "Stop";
-  const step = !usage.complete ? 1 : !ready ? 2 : 3;
+  const step = canReplay ? 3 : !usage.complete ? 1 : !ready ? 2 : 3;
   for (const [index, id] of ["offline-files", "model", "speech"].entries()) {
     if (index + 1 === step) $(id).setAttribute("aria-current", "step");
     else $(id).removeAttribute("aria-current");
@@ -30,6 +46,7 @@ function controls() {
   $("next-step").textContent = deleting ? "Removing saved files and unloading the model…"
     : installation ? "Step 1 of 3 · Downloading speech files. Progress is shown below; loading comes next."
     : !shellReady ? "Preparing offline storage. Download will become available shortly."
+    : canReplay && !speaking ? "Cached speech ready · Press Speak to replay from the beginning. Load the model only for new text or a different voice."
     : !usage.complete ? "Step 1 of 3 · Press Download for offline use. Then load the model, then press Speak."
     : !worker ? "Step 2 of 3 · Download complete. Press Load model to prepare speech in RAM."
     : !ready ? "Step 2 of 3 · Loading the model into RAM. Wait for Ready before speaking."
@@ -105,16 +122,14 @@ async function loadModel() {
     } else if (data.type === "done") {
       speaking = false;
       renderSpeechProgress({ stage: "done" });
-      const previous = wavUrl;
-      wavUrl = URL.createObjectURL(data.wav);
+      wavUrl = speechCache.put(data.text, data.voice, data.wav);
       $("audio").src = wavUrl;
       $("download").href = wavUrl;
       $("download").setAttribute("aria-disabled", "false");
-      if (previous) URL.revokeObjectURL(previous);
       setStatus(`Done — ${data.duration.toFixed(1)}s of audio at ${data.sampleRate} Hz, made in ${data.elapsed.toFixed(1)}s.`);
       const currentAudio = wavUrl;
       $("audio").play().catch(() => {
-        if (wavUrl === currentAudio) { pendingPlayback = { text: data.text ?? $("text").value, voice: data.voice ?? $("voice").value }; setStatus("Done — audio ready. Press Speak again to hear the prepared audio, or Save WAV. Automatic playback was blocked."); }
+        if (wavUrl === currentAudio) { setStatus("Done — audio ready. Press Speak again to hear the prepared audio, or Save WAV. Automatic playback was blocked."); }
       });
     }
     controls();
@@ -125,14 +140,22 @@ async function loadModel() {
   controls();
 }
 function speak() {
-  if (!ready || speaking || deleting) return;
+  if (speaking || deleting) return;
   const text = $("text").value;
-  if (pendingPlayback && wavUrl && pendingPlayback.text === text && pendingPlayback.voice === $("voice").value) {
-    $("audio").play().then(() => { pendingPlayback = undefined; setStatus("Done — playing the prepared speech."); })
-      .catch(() => setStatus("Error: audio playback is blocked. Choose Save WAV to hear the saved file."));
+  const cachedUrl = speechCache.get(text, $("voice").value);
+  if (cachedUrl) {
+      $("speech-preparation").hidden = true;
+    wavUrl = cachedUrl;
+    $("download").href = cachedUrl;
+    $("download").setAttribute("aria-disabled", "false");
+    if ($("audio").src !== cachedUrl) $("audio").src = cachedUrl;
+    $("audio").pause();
+    $("audio").currentTime = 0;
+    $("audio").play().then(() => { if (wavUrl === cachedUrl && !speaking) setStatus("Done — playing the prepared speech."); })
+      .catch(() => { if (wavUrl === cachedUrl && !speaking) setStatus("Error: audio playback is blocked. Choose Save WAV to hear the saved file."); });
     return;
   }
-  pendingPlayback = undefined;
+  if (!ready) return;
   $("audio").pause();
   if (!/[\p{L}\p{N}]/u.test(text)) return setStatus("Type something to speak.");
   if (text.length > 20000) return setStatus("Please use at most 20,000 characters at a time.");
@@ -173,7 +196,7 @@ $("save-offline").addEventListener("click", () => {
 });
 $("cancel-download").addEventListener("click", () => abortDownload?.abort());
 $("load-model").addEventListener("click", loadModel);
-$("unload-model").addEventListener("click", () => unload());
+for (const id of ["unload-model", "unload-saved-model"]) $(id).addEventListener("click", () => unload());
 $("delete-offline").addEventListener("click", async () => {
   if (deleting) return;
   deleting = true;
@@ -194,7 +217,17 @@ channel?.addEventListener("message", ({ data }) => {
   if (data.type === "deleted") { deleting = false; void refreshUsage(); }
   if (data.type === "data-changed") void refreshUsage();
 });
+$("clear-audio-cache").addEventListener("click", () => {
+  if (speaking) return;
+  $("audio").pause(); $("audio").removeAttribute("src"); $("audio").load();
+  speechCache.clear(); wavUrl = undefined;
+  $("download").removeAttribute("href"); $("download").setAttribute("aria-disabled", "true");
+  $("speech-preparation").hidden = true;
+  controls(); setStatus("Audio cache cleared. Saved model files and model loading are unchanged.");
+});
 $("speak").addEventListener("click", speak);
+$("text").addEventListener("input", controls);
+$("voice").addEventListener("change", controls);
 $("cancel").addEventListener("click", () => {
   if (speaking) { worker?.postMessage({ type: "cancel" }); setStatus("Stopping after the current chunk…"); }
   else { $("audio").pause(); setStatus("Playback stopped. The WAV is still available to save."); controls(); }

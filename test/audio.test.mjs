@@ -65,8 +65,8 @@ test("speech progress observes actual phonemization and never counts in-flight i
   const { planSpeech, generateSpeechPieces } = await import("../src/audio.mjs");
   const events = [], tokenizer = value => value;
   let release;
-  const tts = { tokenizer, async generate(text) {
-    this.tokenizer(`phonemes:${text}`);
+  const tts = { tokenizer, async generate(text, { onPhonemes }) {
+    onPhonemes(`phonemes:${text}`);
     await new Promise(resolve => { release = resolve; });
     return { audio: new Float32Array([0.2]), sampling_rate: 24000 };
   } };
@@ -80,7 +80,7 @@ test("speech progress observes actual phonemization and never counts in-flight i
   assert.equal(tts.tokenizer, tokenizer);
 });
 
-test("failed and cancelled generation restores the tokenizer and stops subsequent sentences", async () => {
+test("failed and cancelled generation leaves the tokenizer untouched and stops subsequent sentences", async () => {
   const { planSpeech, generateSpeechPieces } = await import("../src/audio.mjs");
   const tokenizer = text => text, events = [];
   const tts = { tokenizer, async generate() { throw new Error("inference failed"); } };
@@ -88,7 +88,36 @@ test("failed and cancelled generation restores the tokenizer and stops subsequen
   assert.equal(tts.tokenizer, tokenizer);
   assert.equal(events.at(-1).stage, "error");
   let calls = 0;
-  tts.generate = async () => { calls++; return { audio: new Float32Array([0.1]), sampling_rate: 24000 }; };
+  tts.generate = async (text, { onPhonemes }) => { onPhonemes("test phonemes"); calls++; return { audio: new Float32Array([0.1]), sampling_rate: 24000 }; };
   assert.equal(await generateSpeechPieces(tts, planSpeech("Hello. Another sentence."), "af_heart", () => {}, () => calls > 0), null);
   assert.equal(calls, 1);
+});
+
+
+test("generation fails clearly when a library upgrade drops the phoneme callback", async () => {
+  const { planSpeech, generateSpeechPieces } = await import("../src/audio.mjs");
+  const tts = { async generate() { return { audio: new Float32Array([0.1]), sampling_rate: 24000 }; } };
+  await assert.rejects(generateSpeechPieces(tts, planSpeech("Hello."), "af_heart", () => {}), /did not report phoneme progress/);
+});
+
+
+test("the ten-entry audio cache keys text and voice, keeps recently replayed clips, and releases evicted WAVs", async () => {
+  const { createSpeechCache } = await import("../src/audio.mjs");
+  const cache = createSpeechCache(), urls = [];
+  try {
+    for (let i = 0; i < 10; i++) urls.push(cache.put(`phrase${i}`, "voiceA", new Blob([String(i)])));
+    assert.deepEqual(cache.stats(), { count: 10, bytes: 10 });
+    assert.equal(cache.get("phrase0", "voiceA"), urls[0]);
+    cache.put("phrase0", "voiceB", new Blob(["other"]));
+    assert.equal(cache.has("phrase0", "voiceA"), true);
+    assert.equal(cache.has("phrase0", "voiceB"), true);
+    assert.equal(cache.has("phrase0 ", "voiceA"), false);
+    assert.equal(cache.has("phrase1", "voiceA"), false);
+    assert.deepEqual(cache.stats(), { count: 10, bytes: 14 });
+    assert.equal(await (await fetch(urls[0])).text(), "0");
+    await assert.rejects(fetch(urls[1]));
+    cache.clear();
+    assert.deepEqual(cache.stats(), { count: 0, bytes: 0 });
+    await assert.rejects(fetch(urls[0]));
+  } finally { cache.clear(); }
 });

@@ -31,6 +31,8 @@ of this browser build’s dependencies.
 
 Upstream license texts and ONNX Runtime third-party notices follow.
 The application's packaging and integration modify the distribution of these components.
+kokoro-js is modified to report an explicit onPhonemes callback after phonemization;
+hosted builds also rewrite imports and use app-managed voice caching.
 
 Apache License 2.0 (Kokoro, Transformers.js, phonemizer wrapper)
 ================================================================
