@@ -27,7 +27,7 @@ export function renderLicenses(root, { inlineTexts = true } = {}) {
   const notices = fs.readFileSync(path.join(root, "THIRD_PARTY_NOTICES.txt"), "utf8");
   const license = fs.readFileSync(path.join(root, "LICENSE"), "utf8");
   return `<section id="licenses" aria-labelledby="licenses-title"><h2 id="licenses-title">Licenses and dependencies</h2>
-<p>Copyright © 2026 Dima Korolev &lt;dmitry.korolev@gmail.com&gt;.</p>
+<p>Collated from Kokoro-82M, kokoro-js, Transformers.js, phonemizer/eSpeak NG, ONNX Runtime, Hugging Face Jinja, and PRN UI.</p>
 <p><strong>offline-speech’s own code is licensed under GPL-3.0-or-later</strong> (GNU General Public License version 3 or later). Third-party components retain their respective licenses.</p>
 <ul><li><strong>Speech model: <a href="https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX">onnx-community/Kokoro-82M-v1.0-ONNX</a> — Apache-2.0.</strong> Kokoro generates speech; the bundled model and six voice files use this license.</li>
 <li><strong>Text-to-phoneme engine: <a href="https://github.com/espeak-ng/espeak-ng">espeak-ng/espeak-ng (eSpeak NG)</a> — GPL-3.0-or-later.</strong> Its code and language data are embedded through phonemizer. The phonemizer JavaScript wrapper separately uses Apache-2.0.</li></ul>

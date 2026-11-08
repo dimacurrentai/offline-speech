@@ -1,6 +1,6 @@
-Copyright (C) 2026 Dima Korolev <dmitry.korolev@gmail.com>
+Collated from Kokoro-82M, kokoro-js, Transformers.js, phonemizer/eSpeak NG, ONNX Runtime, Hugging Face Jinja, and PRN UI.
 
-The original offline-speech code is licensed under GPL-3.0-or-later.
+The packaging and integration code is distributed under GPL-3.0-or-later.
 Third-party components retain their own copyright notices and licenses.
 
                     GNU GENERAL PUBLIC LICENSE

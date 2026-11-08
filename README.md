@@ -2,7 +2,7 @@
 
 Browser text-to-speech with two build targets: a small hosted page that saves its speech files for offline use, and a standalone HTML file that opens directly from disk. Speech runs on the user's device; text and generated audio are never sent to a server.
 
-Copyright © 2026 Dima Korolev <dmitry.korolev@gmail.com>.
+Collated from Kokoro-82M, kokoro-js, Transformers.js, phonemizer/eSpeak NG, ONNX Runtime, Hugging Face Jinja, and PRN UI.
 
 offline-speech’s own code: **GPL-3.0-or-later** ([LICENSE](LICENSE)). Bundled dependencies keep their own licenses; see the disclosure in each built page and the inventory below.
 

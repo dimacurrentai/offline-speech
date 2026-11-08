@@ -221,7 +221,7 @@ test("a subdirectory bookmark survives a cold offline browser and lets users rec
       const response = await fetch(file); return { ok: response.ok, text: await response.text() };
     })));
     assert.ok(offlineNotices.every(file => file.ok));
-    assert.match(offlineNotices[0].text, /Copyright \(C\) 2026 Dima Korolev/);
+    assert.match(offlineNotices[0].text, /Collated from Kokoro-82M/);
     assert.match(offlineNotices[1].text, /eSpeak NG/);
     await readyModel(page);
     await speak(page);
