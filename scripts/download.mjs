@@ -45,12 +45,11 @@ export async function downloadFile(url, target, expected, {
       log(`got   ${path.basename(target)} (verified)`);
       return;
     } catch (error) {
-      clearTimeout(idleTimer);
       if (attempt === attempts) throw new Error(`Failed to download ${target}: ${error.message}`, { cause: error });
       log(`retry ${path.basename(target)}: ${error.message}`);
-      await delay(retryDelayMs);
     } finally {
       clearTimeout(idleTimer);
     }
+    await delay(retryDelayMs);
   }
 }

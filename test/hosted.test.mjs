@@ -172,6 +172,23 @@ test("a subdirectory bookmark survives a cold offline browser and lets users rec
     await page.click("#speak");
     await waitState(page, () => document.querySelector("#status").textContent === "Done — playing the prepared speech.");
     assert.equal(await page.$eval("#download", el => el.href), downloadUrl, "Speak retries playback without regenerating the file");
+    await page.evaluate(() => {
+      window.playbackAttempts = []; window.playbackReports = [];
+      window.playbackObserver = new MutationObserver(records => {
+        for (const record of records) for (const node of record.addedNodes) window.playbackReports.push(node.textContent);
+      });
+      window.playbackObserver.observe(document.querySelector("#status"), { childList: true });
+      HTMLMediaElement.prototype.play = () => new Promise((resolve, reject) => window.playbackAttempts.push({ resolve, reject }));
+    });
+    await page.click("#speak");
+    await page.click("#speak");
+    await page.evaluate(() => {
+      window.playbackAttempts[0].reject(new DOMException("Interrupted by replay", "AbortError"));
+      window.playbackAttempts[1].resolve();
+    });
+    await waitState(page, () => document.querySelector("#status").textContent === "Done — playing the prepared speech.");
+    assert.ok(!(await page.evaluate(() => window.playbackReports)).some(message => /blocked/.test(message)), "cancelled replay must never flash a false policy-block message");
+    await page.evaluate(() => { window.playbackObserver.disconnect(); HTMLMediaElement.prototype.play = () => Promise.resolve(); });
     const diskBefore = await page.$eval("#disk-usage", (el) => el.textContent);
     const stopped = new Promise((resolve) => page.once("workerdestroyed", resolve));
     assert.equal(await page.$eval("#unload-saved-model", el => el.hidden), false);

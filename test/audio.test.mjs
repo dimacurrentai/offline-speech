@@ -104,20 +104,92 @@ test("generation fails clearly when a library upgrade drops the phoneme callback
 test("the ten-entry audio cache keys text and voice, keeps recently replayed clips, and releases evicted WAVs", async () => {
   const { createSpeechCache } = await import("../src/audio.mjs");
   const cache = createSpeechCache(), urls = [];
+  const usage = () => { const { count, bytes } = cache.stats(); return { count, bytes }; };
   try {
     for (let i = 0; i < 10; i++) urls.push(cache.put(`phrase${i}`, "voiceA", new Blob([String(i)])));
-    assert.deepEqual(cache.stats(), { count: 10, bytes: 10 });
+    assert.deepEqual(usage(), { count: 10, bytes: 10 });
     assert.equal(cache.get("phrase0", "voiceA"), urls[0]);
     cache.put("phrase0", "voiceB", new Blob(["other"]));
     assert.equal(cache.has("phrase0", "voiceA"), true);
     assert.equal(cache.has("phrase0", "voiceB"), true);
     assert.equal(cache.has("phrase0 ", "voiceA"), false);
     assert.equal(cache.has("phrase1", "voiceA"), false);
-    assert.deepEqual(cache.stats(), { count: 10, bytes: 14 });
+    assert.deepEqual(usage(), { count: 10, bytes: 14 });
     assert.equal(await (await fetch(urls[0])).text(), "0");
     await assert.rejects(fetch(urls[1]));
     cache.clear();
-    assert.deepEqual(cache.stats(), { count: 0, bytes: 0 });
+    assert.deepEqual(usage(), { count: 0, bytes: 0 });
     await assert.rejects(fetch(urls[0]));
   } finally { cache.clear(); }
+});
+
+
+test("audio history obeys the byte budget, releases evicted URLs, and handles an oversized current file", async () => {
+  const { createSpeechCache } = await import("../src/audio.mjs");
+  const cache = createSpeechCache(10, 6);
+  try {
+    const a = cache.put("a", "voice", new Blob(["aa"]));
+    const b = cache.put("b", "voice", new Blob(["bb"]));
+    const c = cache.put("c", "voice", new Blob(["cc"]));
+    cache.get("a", "voice");
+    const d = cache.put("d", "voice", new Blob(["ddd"]));
+    assert.equal(cache.stats().bytes, 5);
+    assert.equal(cache.has("a", "voice"), true);
+    assert.equal(cache.has("b", "voice"), false);
+    assert.equal(cache.has("c", "voice"), false);
+    await assert.rejects(fetch(b)); await assert.rejects(fetch(c));
+    cache.put("d", "voice", new Blob(["d"]));
+    assert.equal(cache.stats().bytes, 3);
+    await assert.rejects(fetch(d));
+    const large = cache.put("large", "voice", new Blob(["1234567"]));
+    assert.equal(cache.stats().bytes, 3, "oversized current output does not enter replay history");
+    assert.equal(cache.stats().currentUncachedBytes, 7);
+    assert.equal(cache.get("large", "voice"), large, "current output can still replay");
+    assert.equal(await (await fetch(large)).text(), "1234567");
+    assert.equal(cache.get("a", "voice"), a);
+    assert.equal(cache.stats().currentUncachedBytes, 0);
+    assert.equal(cache.has("large", "voice"), false);
+    await assert.rejects(fetch(large));
+    cache.clear();
+    assert.equal(cache.stats().bytes, 0);
+    await assert.rejects(fetch(a));
+  } finally { cache.clear(); }
+});
+
+test("cancelled and superseded playback never produces a false block message", async () => {
+  const { createSpeechPlayer } = await import("../src/audio.mjs");
+  const reports = [], pending = [];
+  const audio = { currentTime: 8, pause() {}, play() { return new Promise((resolve, reject) => pending.push({ resolve, reject })); } };
+  const player = createSpeechPlayer(audio, message => reports.push(message));
+  const first = player.play({ automatic: true });
+  const replay = player.play({ restart: true });
+  assert.equal(audio.currentTime, 0);
+  pending[0].reject(new DOMException("Interrupted by replay", "AbortError"));
+  pending[1].resolve(); await Promise.all([first, replay]);
+  assert.deepEqual(reports, ["Done — playing the prepared speech."]);
+  reports.length = 0;
+  const stale = player.play({ automatic: true });
+  player.stop();
+  pending[2].reject(new DOMException("Old block result", "NotAllowedError"));
+  await stale;
+  assert.deepEqual(reports, []);
+  const aborted = player.play({ automatic: true });
+  pending[3].reject(new DOMException("Stopped", "AbortError")); await aborted;
+  assert.deepEqual(reports, []);
+});
+
+test("playback reports genuine policy blocks separately from unsupported audio", async () => {
+  const { createSpeechPlayer } = await import("../src/audio.mjs");
+  const reports = [];
+  let error = new DOMException("Policy denied", "NotAllowedError");
+  const player = createSpeechPlayer({ pause() {}, play() { return Promise.reject(error); } }, message => reports.push(message));
+  await player.play({ automatic: true });
+  assert.match(reports.pop(), /Automatic playback was blocked/);
+  await player.play({ restart: true });
+  assert.match(reports.pop(), /playback is blocked/);
+  error = new DOMException("Unsupported audio format", "NotSupportedError");
+  await player.play({ automatic: true });
+  const message = reports.pop();
+  assert.match(message, /playback failed: Unsupported audio format/);
+  assert.ok(!message.includes("blocked"));
 });

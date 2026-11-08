@@ -1,4 +1,4 @@
-import { renderSpeechProgress, setupTheme, createSpeechCache, renderSpeechCache } from "./audio.js";
+import { renderSpeechProgress, setupTheme, createSpeechCache, renderSpeechCache, createSpeechPlayer } from "./audio.js";
 import { MANIFEST } from "./manifest.js";
 import { BASE, PREFIX, SHELL_CACHE, TOTAL_BYTES, getUsage, installAssets, deleteAssets, versioned } from "./storage.js";
 
@@ -9,6 +9,7 @@ let usage = { dataBytes: 0, shellBytes: 0, savedBytes: 0, complete: false };
 let refreshSequence = 0;
 let shellReady = false, deleting = false, worker, ready = false, speaking = false, installation, abortDownload, wavUrl;
 const speechCache = createSpeechCache();
+const player = createSpeechPlayer($("audio"), setStatus);
 setupTheme();
 const channel = typeof BroadcastChannel === "function" ? new BroadcastChannel(PREFIX) : null;
 for (const { id, label } of MANIFEST.voices) $("voice").add(new Option(label, id));
@@ -127,10 +128,7 @@ async function loadModel() {
       $("download").href = wavUrl;
       $("download").setAttribute("aria-disabled", "false");
       setStatus(`Done — ${data.duration.toFixed(1)}s of audio at ${data.sampleRate} Hz, made in ${data.elapsed.toFixed(1)}s.`);
-      const currentAudio = wavUrl;
-      $("audio").play().catch(() => {
-        if (wavUrl === currentAudio) { setStatus("Done — audio ready. Press Speak again to hear the prepared audio, or Save WAV. Automatic playback was blocked."); }
-      });
+      void player.play({ automatic: true });
     }
     controls();
   };
@@ -144,19 +142,17 @@ function speak() {
   const text = $("text").value;
   const cachedUrl = speechCache.get(text, $("voice").value);
   if (cachedUrl) {
+      renderSpeechCache(speechCache);
       $("speech-preparation").hidden = true;
     wavUrl = cachedUrl;
     $("download").href = cachedUrl;
     $("download").setAttribute("aria-disabled", "false");
     if ($("audio").src !== cachedUrl) $("audio").src = cachedUrl;
-    $("audio").pause();
-    $("audio").currentTime = 0;
-    $("audio").play().then(() => { if (wavUrl === cachedUrl && !speaking) setStatus("Done — playing the prepared speech."); })
-      .catch(() => { if (wavUrl === cachedUrl && !speaking) setStatus("Error: audio playback is blocked. Choose Save WAV to hear the saved file."); });
+    void player.play({ restart: true });
     return;
   }
   if (!ready) return;
-  $("audio").pause();
+  player.stop();
   if (!/[\p{L}\p{N}]/u.test(text)) return setStatus("Type something to speak.");
   if (text.length > 20000) return setStatus("Please use at most 20,000 characters at a time.");
   speaking = true;
@@ -219,7 +215,7 @@ channel?.addEventListener("message", ({ data }) => {
 });
 $("clear-audio-cache").addEventListener("click", () => {
   if (speaking) return;
-  $("audio").pause(); $("audio").removeAttribute("src"); $("audio").load();
+  player.stop(); $("audio").removeAttribute("src"); $("audio").load();
   speechCache.clear(); wavUrl = undefined;
   $("download").removeAttribute("href"); $("download").setAttribute("aria-disabled", "true");
   $("speech-preparation").hidden = true;
@@ -230,7 +226,7 @@ $("text").addEventListener("input", controls);
 $("voice").addEventListener("change", controls);
 $("cancel").addEventListener("click", () => {
   if (speaking) { worker?.postMessage({ type: "cancel" }); setStatus("Stopping after the current chunk…"); }
-  else { $("audio").pause(); setStatus("Playback stopped. The WAV is still available to save."); controls(); }
+  else { player.stop(); setStatus("Playback stopped. The WAV is still available to save."); controls(); }
 });
 for (const event of ["play", "pause", "ended"]) $("audio").addEventListener(event, controls);
 $("text").addEventListener("keydown", (event) => {

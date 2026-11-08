@@ -189,35 +189,70 @@ export function setupTheme() {
 }
 
 // Keep recent WAVs in tab memory, never in persistent browser storage.
-export function createSpeechCache(limit = 10) {
+export function createSpeechCache(limit = 10, maxBytes = 64 * 1024 ** 2) {
+  if (!Number.isSafeInteger(limit) || limit < 1 || !Number.isSafeInteger(maxBytes) || maxBytes < 1) throw new RangeError("Invalid speech-cache limits");
   const entries = new Map();
+  let currentUncached;
+  const cachedBytes = () => [...entries.values()].reduce((sum, entry) => sum + entry.bytes, 0);
+  const releaseUncached = () => {
+    if (currentUncached) URL.revokeObjectURL(currentUncached.url);
+    currentUncached = undefined;
+  };
   const keyFor = (text, voice) => JSON.stringify([text, voice]);
   return {
-    has(text, voice) { return entries.has(keyFor(text, voice)); },
+    has(text, voice) { const key = keyFor(text, voice); return entries.has(key) || currentUncached?.key === key; },
     get(text, voice) {
       const key = keyFor(text, voice), entry = entries.get(key);
-      if (entry) { entries.delete(key); entries.set(key, entry); }
+      if (currentUncached?.key === key) return currentUncached.url;
+      if (entry) { releaseUncached(); entries.delete(key); entries.set(key, entry); }
       return entry?.url;
     },
     put(text, voice, wav) {
       const key = keyFor(text, voice), url = URL.createObjectURL(wav);
+      releaseUncached();
       if (entries.has(key)) URL.revokeObjectURL(entries.get(key).url);
       entries.delete(key);
+      // An oversized result must still be playable/saveable, but does not enter history.
+      if (wav.size > maxBytes) { currentUncached = { key, url, bytes: wav.size }; return url; }
       entries.set(key, { url, bytes: wav.size });
-      while (entries.size > limit) {
+      while (entries.size > limit || cachedBytes() > maxBytes) {
         const oldest = entries.keys().next().value;
         URL.revokeObjectURL(entries.get(oldest).url);
         entries.delete(oldest);
       }
       return url;
     },
-    clear() { for (const entry of entries.values()) URL.revokeObjectURL(entry.url); entries.clear(); },
-    stats() { return { count: entries.size, bytes: [...entries.values()].reduce((sum, entry) => sum + entry.bytes, 0) }; },
+    clear() { releaseUncached(); for (const entry of entries.values()) URL.revokeObjectURL(entry.url); entries.clear(); },
+    stats() { return { count: entries.size, bytes: cachedBytes(), entryLimit: limit, byteLimit: maxBytes, currentUncachedBytes: currentUncached?.bytes ?? 0 }; },
   };
 }
 
 export function renderSpeechCache(cache) {
-  const { count, bytes } = cache.stats();
-  document.getElementById("audio-cache-info").textContent = `Recent audio: ${count} / 10 text-and-voice combinations · ${(bytes / 1024 ** 2).toFixed(2)} MiB of cached WAVs in this tab’s RAM. No disk storage; closing this tab clears it. Audio decoding can use additional RAM.`;
-  document.getElementById("clear-audio-cache").disabled = !count;
+  const { count, bytes, entryLimit, byteLimit, currentUncachedBytes } = cache.stats();
+  const extra = currentUncachedBytes ? ` Current WAV: ${(currentUncachedBytes / 1024 ** 2).toFixed(2)} MiB, outside the history budget; kept only until another clip is selected or created, or the cache is cleared.` : "";
+  document.getElementById("audio-cache-info").textContent = `Recent audio: ${count} / ${entryLimit} text-and-voice combinations · ${(bytes / 1024 ** 2).toFixed(2)} / ${(byteLimit / 1024 ** 2).toFixed(0)} MiB of cached WAVs in this tab’s RAM.${extra} No disk storage; closing this tab clears it. Audio decoding can use additional RAM.`;
+  document.getElementById("clear-audio-cache").disabled = !count && !currentUncachedBytes;
+}
+
+
+// A newer play/stop supersedes earlier promises, even when the URL is unchanged.
+export function createSpeechPlayer(audio, report) {
+  let attempt = 0;
+  return {
+    stop() { attempt++; audio.pause(); },
+    async play({ restart = false, automatic = false } = {}) {
+      const current = ++attempt;
+      if (restart) { audio.pause(); audio.currentTime = 0; }
+      try {
+        await audio.play();
+        if (current === attempt && !automatic) report("Done — playing the prepared speech.");
+      } catch (error) {
+        if (current !== attempt || error?.name === "AbortError") return;
+        if (error?.name === "NotAllowedError") {
+          report(automatic ? "Done — audio ready. Press Speak again to hear it, or Save WAV. Automatic playback was blocked."
+            : "Error: audio playback is blocked. Choose Save WAV to hear the saved file.");
+        } else report(`Error: audio playback failed: ${error?.message ?? error}. Choose Save WAV to hear the saved file.`);
+      }
+    },
+  };
 }
