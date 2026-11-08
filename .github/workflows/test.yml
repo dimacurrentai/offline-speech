@@ -1,0 +1,91 @@
+name: Test
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  node-20-unit-tests:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm run test:unit
+  offline-tts:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:unit
+      - uses: actions/cache@v4
+        with:
+          path: models
+          key: model-${{ hashFiles('src/model-integrity.mjs') }}
+      - uses: actions/cache@v4
+        with:
+          path: vendor
+          key: browser-assets-${{ hashFiles('src/assets.mjs') }}
+      - run: npm run download-assets
+      - run: npm run build
+      - name: Install test browser
+        run: |
+          node --input-type=module <<'JS'
+          import { install, Browser, detectBrowserPlatform } from '@puppeteer/browsers';
+          import fs from 'node:fs';
+          import { PUPPETEER_REVISIONS } from 'puppeteer-core';
+          const browser = await install({ browser: Browser.CHROME, buildId: PUPPETEER_REVISIONS.chrome, platform: detectBrowserPlatform(), cacheDir: process.env.RUNNER_TEMP + '/offline-speech-browser' });
+          fs.appendFileSync(process.env.GITHUB_ENV, `CHROME_PATH=${browser.executablePath}\n`);
+          JS
+      - run: npm run test:e2e
+        env:
+          CHROME_NO_SANDBOX: '1'
+      - name: Prepare downloadable files
+        working-directory: dist
+        run: |
+          cp ../THIRD_PARTY_NOTICES.txt .
+          tar -czf offline-speech-hosted.tar.gz -C hosted .
+          sha256sum offline-speech.html offline-speech-hosted.tar.gz > SHA256SUMS
+      - name: Retain the tested build
+        uses: actions/upload-artifact@v4
+        with:
+          name: offline-speech-${{ github.sha }}
+          path: |
+            dist/offline-speech.html
+            dist/offline-speech-hosted.tar.gz
+            dist/SHA256SUMS
+            dist/THIRD_PARTY_NOTICES.txt
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [node-20-unit-tests, offline-tts]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: offline-speech-${{ github.sha }}
+          path: dist
+      - name: Publish the tested build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          cat > release-notes.md <<'MD'
+          Download offline-speech.html for a standalone file, or extract offline-speech-hosted.tar.gz onto an HTTPS static host for bookmarkable offline speech, visible download progress, and storage/RAM controls. See the README for Git-submodule integration.
+
+          offline-speech’s own code is licensed under GPL-3.0-or-later; third-party components retain their own licenses. Both HTML builds include dependency inventories and full license texts available offline.
+
+          The HTML includes eSpeak NG code licensed under GPL-3.0-or-later (GNU GPL version 3 or later). This GPL-covered code is part of the file you share. The full license text is embedded in the HTML and included in THIRD_PARTY_NOTICES.txt. Upstream source: https://github.com/espeak-ng/espeak-ng
+
+          SHA256SUMS contains SHA-256 checksums for the standalone HTML and hosted archive. These files were built and tested by CI for this tag.
+          MD
+          gh release create "$RELEASE_TAG" dist/offline-speech.html dist/offline-speech-hosted.tar.gz dist/SHA256SUMS dist/THIRD_PARTY_NOTICES.txt --verify-tag --title "offline-speech $RELEASE_TAG" --notes-file release-notes.md

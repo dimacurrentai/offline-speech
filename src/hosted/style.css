@@ -1,0 +1,38 @@
+/* PRN UI palette and chamfer geometry, adapted from dkorolev/prnui (MIT).
+   Source revision and license are included in the dependency disclosure. */
+:root { color-scheme:dark; --bg:#0d1117; --fg:#e6edf3; --muted:#a2abb7; --line:#2a3140; --card:#161b22; --accent:#d29922; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui,sans-serif; }
+    main { max-width:760px; margin:auto; padding:32px 16px; }
+    h1 { margin:0; font-size:26px; } h2 { margin:0 0 12px; font-size:18px; }
+    p { margin:8px 0 16px; } .muted,small { color:var(--muted); }
+    section { margin:20px 0; padding:20px; border:1px solid var(--line); border-radius:0; background:var(--card); }
+    .metrics { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+    .metrics dt { font-size:14px; color:var(--muted); } .metrics dd { margin:4px 0 0; font-size:22px; font-weight:600; }
+    .row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:12px 0; }
+    button,select,a.button { font:inherit; padding:9px 13px; color:inherit; background:var(--card); border:1px solid var(--line); border-radius:2px; text-decoration:none; }
+    .primary,a.button.primary { background:var(--accent); border-color:var(--accent); color:#0d1117; font-weight:700; }
+    .primary:disabled,a.primary[aria-disabled="true"] { background:var(--line); border-color:var(--line); color:var(--muted); opacity:1; }
+    button:disabled,[aria-disabled="true"] { opacity:.5; } a[aria-disabled="true"] { pointer-events:none; }
+    button:not(:disabled),summary { cursor:pointer; }
+    textarea { width:100%; min-height:150px; margin-top:6px; padding:12px; font:inherit; color:inherit; background:var(--bg); border:1px solid var(--line); border-radius:2px; resize:vertical; }
+    audio,progress { width:100%; } progress { height:18px; accent-color:var(--accent); }
+    #status,#download-status { min-height:1.5em; } small { display:block; }
+    details { margin-top:16px; font-size:14px; } [hidden] { display:none !important; }
+    @media(max-width:480px) { .metrics { grid-template-columns:1fr; gap:12px; } section { padding:16px; } }
+
+.license-table { overflow-x:auto; } th,td { text-align:left; padding:6px; vertical-align:top; overflow-wrap:anywhere; } pre { white-space:pre-wrap; overflow-wrap:anywhere; }
+
+h1,h2,.metrics dd { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+a { color:#e9b84b; }
+button,a.button { --cut:5px; clip-path:polygon(var(--cut) 0,calc(100% - var(--cut)) 0,100% var(--cut),100% calc(100% - var(--cut)),calc(100% - var(--cut)) 100%,var(--cut) 100%,0 calc(100% - var(--cut)),0 var(--cut)); min-height:44px; }
+button:focus-visible,a.button:focus-visible { outline:none; box-shadow:inset 0 0 0 3px var(--fg); }
+a:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+button:not(:disabled):hover,a.button:not([aria-disabled="true"]):hover { filter:brightness(1.15); }
+.steps { display:flex; flex-wrap:wrap; gap:8px 24px; padding:0; list-style:none; font-family:ui-monospace,monospace; }
+.steps a { display:inline-block; padding:8px 0; }
+.callout { padding:16px; border-left:3px solid var(--accent); background:var(--card); }
+section[aria-current="step"] { border-left:3px solid var(--accent); }
+@media(prefers-reduced-motion:no-preference) { html { scroll-behavior:smooth; } }
+
+.sentence-progress { max-height:240px; overflow:auto; padding-left:28px; } .sentence-progress li { margin:8px 0; } .sentence-progress small { display:block; } .sentence-progress [aria-current="step"] { color:var(--accent); }
