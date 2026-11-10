@@ -1,0 +1,44 @@
+Remove the "Make this a worker" block from emscripten/post.js, as phonemizer.js did (commit
+609bebe, "Remove worker-specific post-processing"): the module runs inside the app's own speech
+worker, whose message handler it must not replace.
+
+diff --git a/emscripten/post.js b/emscripten/post.js
+index 7105ed67..898bbf51 100644
+--- a/emscripten/post.js
++++ b/emscripten/post.js
+@@ -114,35 +114,3 @@ eSpeakNGWorker.prototype.synthesize_ipa = function (aText, aCallback) {
+   
+   return ret;
+ };
+-
+-// Make this a worker
+-
+-if (typeof WorkerGlobalScope !== 'undefined') {
+-  var worker;
+-  
+-  Module.postRun = Module.postRun || [];
+-
+-  Module.postRun.push(function () {
+-    worker = new eSpeakNGWorker();
+-    postMessage('ready');
+-  });
+-
+-  onmessage = function(e) {
+-    
+-    if (!worker) {
+-      throw 'eSpeakNGWorker worker not initialized';
+-    }
+-    var args = e.data.args;
+-    var message = { callback: e.data.callback, done: true };
+-    if (e.data.method == 'synthesize') {
+-      args.push(function(samples, events) {
+-        postMessage(
+-          { callback: e.data.callback,
+-            result: [samples.buffer, events] }, [samples.buffer]);
+-      });
+-    }
+-    message.result = [worker[e.data.method].apply(worker, args)];
+-    if (e.data.callback)
+-      postMessage(message);
+-  }
+-}

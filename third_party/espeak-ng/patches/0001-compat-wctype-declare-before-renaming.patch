@@ -1,0 +1,19 @@
+Include <wchar.h> before src/include/compat/wctype.h renames the isw* functions to ucd-tools.
+Current Emscripten declares them in wchar.h as well, which otherwise fails to compile. Calls still
+go to ucd-tools, as on other platforms; upstream later disabled the renaming under Emscripten
+instead (690ee601), which would switch character classes to the C library.
+
+diff --git a/src/include/compat/wctype.h b/src/include/compat/wctype.h
+index e0d2c64e..a92ea737 100644
+--- a/src/include/compat/wctype.h
++++ b/src/include/compat/wctype.h
+@@ -30,6 +30,9 @@
+ #include_next <wctype.h>
+ #endif
+ 
++/* Declare the C library's functions before the macros below rename them (Emscripten's wchar.h
++   declares them too). Calls still go to ucd-tools, as on other platforms. */
++#include <wchar.h>
+ #include <ucd/ucd.h>
+ 
+ #define iswalnum  ucd_isalnum

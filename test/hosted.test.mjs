@@ -7,6 +7,7 @@ import http from "node:http";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import puppeteer from "puppeteer-core";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -57,6 +58,21 @@ test("hosted output is self-contained, integrity-pinned, and fits static-host fi
   const source = fs.readFileSync(path.join(HOSTED, kokoro.parts[0].url), "utf8");
   assert.ok(!source.includes('from"@huggingface/transformers"'));
   assert.ok(!source.includes('caches.open("kokoro-voices")'));
+});
+
+test("hosted output carries its corresponding source outside the offline payload", async () => {
+  const { MANIFEST } = await import(pathToFileURL(path.join(HOSTED, "manifest.js")));
+  const { ESPEAK_NG_SOURCE } = await import("../src/assets.mjs");
+  const { verifyFile } = await import("../scripts/files.mjs");
+  const dir = path.join(HOSTED, "source");
+  assert.deepEqual(fs.readdirSync(dir).sort(), [path.basename(ESPEAK_NG_SOURCE.file), "README.txt", "offline-speech-source.tar.gz"].sort());
+  assert.ok(await verifyFile(path.join(dir, path.basename(ESPEAK_NG_SOURCE.file)), ESPEAK_NG_SOURCE));
+  const listed = execFileSync("tar", ["-tzf", path.join(dir, "offline-speech-source.tar.gz")], { encoding: "utf8" }).split("\n");
+  for (const file of ["LICENSE", "scripts/build-espeak-ng.sh", "src/phonemizer-wrapper.js", "third_party/espeak-ng/phonemizer.js",
+    "third_party/espeak-ng/patches/0001-compat-wctype-declare-before-renaming.patch"]) assert.ok(listed.includes(file), file);
+  assert.ok(!listed.some((file) => /^(\.git|node_modules|models|dist|vendor)\//.test(file)));
+  assert.ok(!JSON.stringify(MANIFEST).includes("source/"));
+  assert.match(fs.readFileSync(path.join(HOSTED, "index.html"), "utf8"), /href="\.\/source\/"/);
 });
 
 test("a subdirectory bookmark survives a cold offline browser and lets users reclaim disk and RAM", { timeout: 420000 }, async (t) => {

@@ -11,10 +11,15 @@ https://github.com/hexgrad/kokoro
 Transformers.js 3.8.1 (Apache-2.0)
 https://github.com/huggingface/transformers.js
 
-phonemizer 1.2.1 JavaScript wrapper (Apache-2.0)
-https://github.com/xenova/phonemizer.js
-Includes eSpeak NG code and language data (GPL-3.0-or-later).
-Source: https://github.com/espeak-ng/espeak-ng
+phonemizer 1.2.1 JavaScript wrapper (Apache-2.0), adapted
+https://github.com/xenova/phonemizer.js/tree/6835144b7ee9043129222549c1ed2f6a27216278
+src/phonemizer-wrapper.js starts the eSpeak NG module below through its factory.
+
+eSpeak NG code and English language data (GPL-3.0-or-later)
+https://github.com/espeak-ng/espeak-ng/tree/890071ff30231883d761e4d59edabd6d69faf159
+Built to WebAssembly by scripts/build-espeak-ng.sh with the patches in
+third_party/espeak-ng/patches/. Corresponding source: offline-speech-source.tar.gz
+and espeak-ng-890071ff30231883d761e4d59edabd6d69faf159.tar.gz, published with each build.
 
 ONNX Runtime Web 1.22.0-dev.20250409-89f8206ba4 (MIT)
 https://github.com/microsoft/onnxruntime/tree/89f8206ba4f1c22c39e0297fb55272e8ce8cd7d0
@@ -25,7 +30,6 @@ https://github.com/huggingface/huggingface.js
 onnxruntime-common 1.21.0 (MIT), embedded in Transformers.js
 https://github.com/microsoft/onnxruntime/tree/v1.21.0
 
-The exact eSpeak NG engine revision embedded in phonemizer 1.2.1 is not identified upstream.
 ONNX Runtime notices below cover multiple upstream runtime variants and are a superset
 of this browser build’s dependencies.
 

@@ -111,7 +111,7 @@ The included workflow already caches `models/` and `vendor/` separately. For a p
 
 Adjust the submodule path to match your checkout. Do not cache generated output in Git; downloads are still verified against pinned SHA-256 hashes after restoration.
 
-Successful CI runs retain builds for 30 days. A `v*` tag publishes the tested standalone HTML, a deployable hosted archive, checksums, and notices as a GitHub release. Release assets will appear on the [releases page](https://github.com/dimacurrentai/offline-speech/releases) when a version tag is published.
+Successful CI runs retain builds for 30 days. A `v*` tag publishes the tested standalone HTML, a deployable hosted archive, both corresponding-source archives, checksums, and notices as a GitHub release. Release assets will appear on the [releases page](https://github.com/dimacurrentai/offline-speech/releases) when a version tag is published.
 
 ## Implementation
 
@@ -137,8 +137,8 @@ Preparation shows sentence breaks, real phoneme-generation stages through an exp
 | [onnx-community/Kokoro-82M-v1.0-ONNX (model and six voices)](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/tree/1939ad2a8e416c0acfeecc08a694d14ef25f2231) | 1939ad2a8e416c0acfeecc08a694d14ef25f2231 | **Apache-2.0** |
 | [kokoro-js](https://github.com/hexgrad/kokoro) | 1.2.1 | **Apache-2.0** |
 | [@huggingface/transformers](https://github.com/huggingface/transformers.js) | 3.8.1 | **Apache-2.0** |
-| [phonemizer JavaScript wrapper](https://github.com/xenova/phonemizer.js) | 1.2.1 | **Apache-2.0** |
-| [eSpeak NG code and language data](https://github.com/espeak-ng/espeak-ng) | Embedded in phonemizer 1.2.1; engine revision not identified upstream | **GPL-3.0-or-later** |
+| [phonemizer JavaScript wrapper (adapted)](https://github.com/xenova/phonemizer.js/tree/6835144b7ee9043129222549c1ed2f6a27216278) | 1.2.1 (6835144b7ee9043129222549c1ed2f6a27216278) | **Apache-2.0** |
+| [eSpeak NG code and language data (built by offline-speech)](https://github.com/espeak-ng/espeak-ng/tree/890071ff30231883d761e4d59edabd6d69faf159) | 890071ff30231883d761e4d59edabd6d69faf159 | **GPL-3.0-or-later** |
 | [ONNX Runtime Web (JavaScript and WASM)](https://github.com/microsoft/onnxruntime/tree/89f8206ba4f1c22c39e0297fb55272e8ce8cd7d0) | 1.22.0-dev.20250409-89f8206ba4 | **MIT** |
 | [onnxruntime-common (inside Transformers.js)](https://github.com/microsoft/onnxruntime/tree/v1.21.0) | 1.21.0 | **MIT** |
 | [@huggingface/jinja (inside Transformers.js)](https://github.com/huggingface/huggingface.js) | 0.5.3 | **MIT** |
@@ -147,20 +147,29 @@ Kokoro is the speech model; eSpeak NG is the text-to-phoneme engine. These are s
 
 **Development/test tooling:** `puppeteer-core` 25.16.0 is **Apache-2.0** and is not shipped to visitors. Its complete transitive npm dependency inventory, with each package’s version and license, is included in both HTML builds and recorded in [package-lock.json](package-lock.json). Builds use Node’s built-ins; no npm runtime dependency is installed for production.
 
-**The built HTML includes eSpeak NG code licensed under GPL-3.0-or-later (GNU General Public License version 3 or later).** This GPL-covered code is part of the HTML you share. It is bundled by phonemizer; the phonemizer wrapper's Apache-2.0 license is separate from the eSpeak NG license. The full GPL text is included in the HTML's notices, and the [eSpeak NG source](https://github.com/espeak-ng/espeak-ng) is available upstream.
+**The built HTML includes eSpeak NG code licensed under GPL-3.0-or-later (GNU General Public License version 3 or later).** This GPL-covered code is part of the HTML you share. offline-speech builds it from pinned source, as described under [eSpeak NG build](#espeak-ng-build); the adapted phonemizer wrapper's Apache-2.0 license is separate from the eSpeak NG license. The full GPL text is included in the HTML's notices.
 
 `THIRD_PARTY_NOTICES.txt` contains upstream attributions, licenses, and ONNX Runtime dependency notices. The same text is embedded in the standalone HTML under **Licenses and dependencies**, so it travels with the file. The phonemizer wrapper and its embedded eSpeak NG code have different licenses; both are identified there. offline-speech’s own code is licensed under **GPL-3.0-or-later**; see [LICENSE](LICENSE). Third-party licenses remain unchanged. Both HTML builds include a visible license summary, browser dependency inventory, all locked npm development/test dependencies, and full license texts available offline. The hosted page links to separately cached `LICENSE.txt` and `THIRD_PARTY_NOTICES.txt` files to keep its HTML small; the standalone HTML embeds the full texts for portability. The npm tools are not shipped to app visitors.
 
-Distributors must preserve notices and satisfy applicable GPL corresponding-source obligations; notices and upstream links alone are not a complete corresponding-source distribution. A separate HTML page does not automatically settle whether other code is a separate or combined work; see the [GNU GPL FAQ](https://www.gnu.org/licenses/gpl-faq.html#MereAggregation). The published phonemizer bundle does not identify its exact embedded eSpeak NG revision. ONNX Runtime’s full upstream notices cover multiple runtime variants, so their native dependency inventory is a superset of this browser build.
+Every build carries its corresponding source: the hosted build writes `source/` beside the page, and CI artifacts and releases include both archives next to the HTML. Distributors must preserve notices and pass on that source, or otherwise meet GPL corresponding-source obligations. A separate HTML page does not automatically settle whether other code is a separate or combined work; see the [GNU GPL FAQ](https://www.gnu.org/licenses/gpl-faq.html#MereAggregation). ONNX Runtime’s full upstream notices cover multiple runtime variants, so their native dependency inventory is a superset of this browser build.
+
+## eSpeak NG build
+
+`third_party/espeak-ng/phonemizer.js` is committed and pinned by SHA-256 in `src/assets.mjs`. [`scripts/build-espeak-ng.sh`](scripts/build-espeak-ng.sh) rebuilds it byte-for-byte from eSpeak NG commit `890071ff30231883d761e4d59edabd6d69faf159` with Emscripten 7.0.0, applying the build fixes in [`third_party/espeak-ng/patches/`](third_party/espeak-ng/patches/) and appending [`src/phonemizer-wrapper.js`](src/phonemizer-wrapper.js), an adaptation of phonemizer 1.2.1's wrapper. That revision's English dictionary, phoneme tables, intonations, language and voice files are byte-identical to the data in phonemizer 1.2.1, which kokoro-js 1.2.1 was built against, so pronunciation is unchanged.
+
+```sh
+emsdk install 7.0.0 && emsdk activate 7.0.0 && source ./emsdk_env.sh
+scripts/build-espeak-ng.sh
+```
+
+The script needs Git, CMake and a native C/C++ compiler; the `emscripten/emsdk:7.0.0` container provides all of them. CI rebuilds the module that way and fails if it differs from the committed file.
+
+Builds write two corresponding-source archives: `offline-speech-source.tar.gz`, this repository's source including the build script, patches and wrapper, and `espeak-ng-890071ff30231883d761e4d59edabd6d69faf159.tar.gz`, GitHub's archive of the pinned eSpeak NG commit, downloaded by `npm run download-assets` and checked against its SHA-256.
 
 ## Before public distribution
 
-The following work is planned, not completed. Keep the repository private until the source-distribution path is established and publication is explicitly approved.
+The license cleanup, the Puppeteer upgrade, the pinned eSpeak NG build and corresponding-source packaging are complete. Before publication:
 
-1. **License-file cleanup.** Put the unchanged GPL version 3 text in `LICENSE` so license scanners can recognize it. Keep the “Collated from…” provenance statement and the explicit GPL-3.0-or-later grant in the README and package metadata. Do not add a personal or generic contributors copyright claim as part of this cleanup. Preserve upstream copyright notices and licenses.
-
-2. **Browser-test tooling.** The November 10, 2026 dependency audit reported nine high-severity affected packages in the Puppeteer dependency tree, including findings originating in `basic-ftp`, `extract-zip`, and `zod`. These are development/test dependencies, not browser payloads; this audit does not assess the separately fetched browser bundles. Explicitly upgrade Puppeteer, review the dependency changes and Node/CI requirements, then rerun the full suite. Do not apply `npm audit fix --force` blindly.
-
-3. **Pinned eSpeak NG build experiment.** Try the upstream browser build from a fixed eSpeak NG commit before committing to an integration. Check compatibility with the phonemizer wrapper, pronunciation, all bundled voices, offline execution, and the existing browser tests. Linking to the precompiled phonemizer worker records provenance but does not provide the underlying eSpeak source and build inputs. An honest disclosure of that gap does not resolve it.
-
-4. **Corresponding source and deployment.** Before shipping a replacement, make its corresponding source, glue code, patches, required data, and build instructions available alongside the binaries. Review the result against [GPLv3’s corresponding-source and distribution requirements](https://www.gnu.org/licenses/gpl.en.html). Coordinate replacement of any existing deployment, including `dima.ai/tts/`; changing this repository alone does not update a hosted copy. Downloadable CI artifacts and tagged releases also distribute the compiled code. Revisit public visibility only after this source-distribution work is settled.
+1. Confirm that CI's `espeak-ng-reproducible-build` job rebuilds `third_party/espeak-ng/phonemizer.js` byte-for-byte on Linux.
+2. Replace existing deployments, including `dima.ai/tts/`, with a build that serves its `source/` directory. Changing this repository alone does not update a hosted copy.
+3. Make the repository public only after explicit approval.

@@ -66,7 +66,7 @@ export async function build({ root = ROOT, output = path.join(root, "dist", "off
   }
   for (const asset of LIBRARY_FILES) {
     if (!(await verifyFile(path.join(root, asset.file), asset))) {
-      throw new Error(`Library integrity check failed: ${asset.file}. Run npm run download-libraries to repair it.`);
+      throw new Error(`Library integrity check failed: ${asset.file}. ${asset.url ? "Run npm run download-libraries to repair it." : "Rebuild it with scripts/build-espeak-ng.sh."}`);
     }
   }
   const app = inlineApp(root);

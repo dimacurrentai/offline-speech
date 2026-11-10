@@ -26,7 +26,21 @@ export const MODEL_FILES = [
 ];
 
 // Browser assets fetched directly from versioned npm CDN URLs; no native packages.
-// Hashes match the files in the original, pinned npm distributions.
+// Hashes match the files in the original, pinned npm distributions. The exception is the eSpeak NG
+// text-to-phoneme module: it is built from pinned source by scripts/build-espeak-ng.sh and committed,
+// so it has no URL, and its hash pins that build.
+// Corresponding source of the eSpeak NG module: the pinned upstream revision, as GitHub archives it.
+// Builds publish it beside offline-speech's own source archive, which holds the build script and patches.
+export const ESPEAK_NG_COMMIT = "890071ff30231883d761e4d59edabd6d69faf159";
+export const ESPEAK_NG_SOURCE = {
+  "name": "eSpeak NG source",
+  "file": `vendor/source/espeak-ng-${ESPEAK_NG_COMMIT}.tar.gz`,
+  "type": "application/gzip",
+  "url": `https://github.com/espeak-ng/espeak-ng/archive/${ESPEAK_NG_COMMIT}.tar.gz`,
+  "size": 16321798,
+  "sha256": "5da62c4d6af424cf8236dd4952326f28b328eb37c83f423a1c889435a97b5bc8",
+};
+
 export const LIBRARY_FILES = [
   {
     "name": "kokoro-js",
@@ -46,11 +60,10 @@ export const LIBRARY_FILES = [
   },
   {
     "name": "phonemizer",
-    "file": "vendor/phonemizer.js",
+    "file": "third_party/espeak-ng/phonemizer.js",
     "type": "text/javascript",
-    "url": "https://cdn.jsdelivr.net/npm/phonemizer@1.2.1/dist/phonemizer.js",
-    "size": 1322380,
-    "sha256": "193481f474f7c1ea81df3195d18b45df8ef7254dbdccb3f193d60215c4897bec"
+    "size": 1552323,
+    "sha256": "f7f99879d94db9d6f39dee2718bfe6ff93bc3254520a53c33815e803311f0262"
   },
   {
     "name": "ort.mjs",

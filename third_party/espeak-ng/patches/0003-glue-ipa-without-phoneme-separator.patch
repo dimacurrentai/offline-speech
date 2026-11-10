@@ -1,0 +1,17 @@
+Request IPA without a separator between phonemes in synth_ipa_ (emscripten/espeakng_glue.cpp).
+With the space separator, this eSpeak NG version puts a space between every phoneme; kokoro-js
+expects joined phonemes with spaces only between words, which is the output of phonemizer 1.2.1.
+
+diff --git a/emscripten/espeakng_glue.cpp b/emscripten/espeakng_glue.cpp
+index 24398dc1..6d2c3dce 100644
+--- a/emscripten/espeakng_glue.cpp
++++ b/emscripten/espeakng_glue.cpp
+@@ -62,7 +62,7 @@ public:
+         
+     int phoneme_options               = (1 << 1); // Use IPA
+     int use_custom_phoneme_separator  = (0 << 7);
+-    int phonemes_separator            = ' '; // Use a default value
++    int phonemes_separator            = 0; // No separator: phonemes joined, words separated by spaces
+ 
+     int phoneme_conf                  = phoneme_options | (phonemes_separator << 8);
+     
