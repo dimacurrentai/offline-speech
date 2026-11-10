@@ -10,6 +10,7 @@ import { MODEL_REVISION } from "../src/model-integrity.mjs";
 import { verifyFile } from "./files.mjs";
 
 export const OWN_SOURCE_ARCHIVE = "offline-speech-source.tar.gz";
+export const REPOSITORY = "https://github.com/dimacurrentai/offline-speech";
 export const ESPEAK_NG_SOURCE_ARCHIVE = path.basename(ESPEAK_NG_SOURCE.file);
 export const SOURCE_ARCHIVES = [ESPEAK_NG_SOURCE, ...LIBRARY_SOURCE_ARCHIVES];
 export const SOURCE_ARCHIVE_NAMES = [OWN_SOURCE_ARCHIVE, ...SOURCE_ARCHIVES.map(asset => path.basename(asset.file))];
@@ -38,6 +39,30 @@ export function sourceFiles(root) {
   return tracked.filter((file) => fs.existsSync(path.join(root, file))).sort();
 }
 
+// The Git commit this build comes from, when `root` is the top of its own Git checkout (a clone or a
+// submodule), and whether its source paths are unmodified. Null for an unpacked archive, even one
+// that sits inside another repository.
+export function sourceRevision(root) {
+  const git = (...args) => execFileSync("git", ["-C", root, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+  try {
+    if (fs.realpathSync(git("rev-parse", "--show-toplevel")) !== fs.realpathSync(root)) return null;
+    return { commit: git("rev-parse", "HEAD"), clean: git("status", "--porcelain", "--untracked-files=no", "--", ...SOURCE_PATHS) === "" };
+  } catch {
+    return null;
+  }
+}
+
+// Where this build's source lives online. Only an unmodified checkout links its exact commit.
+export function sourceLocation(root) {
+  const revision = sourceRevision(root);
+  const location = revision?.clean
+    ? { prefix: `This build is offline-speech commit ${revision.commit}; its source is also published at `, url: `${REPOSITORY}/tree/${revision.commit}` }
+    : revision
+      ? { prefix: `This build has local changes on top of offline-speech commit ${revision.commit}, so only the source archives match it exactly. Repository: `, url: REPOSITORY }
+      : { prefix: "The source archives match this build exactly. offline-speech repository: ", url: REPOSITORY };
+  return { ...location, text: `${location.prefix}${location.url}.` };
+}
+
 export async function checkSourceInputs(root) {
   for (const asset of SOURCE_ARCHIVES) {
     if (!(await verifyFile(path.join(root, asset.file), asset))) {
@@ -47,8 +72,10 @@ export async function checkSourceInputs(root) {
 }
 
 const escape = value => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
-export function sourceDirections() {
-  return `${OWN_SOURCE_ARCHIVE}: offline-speech integration source, build scripts, dated eSpeak patches, and wrapper.
+export function sourceDirections(root) {
+  return `${sourceLocation(root).text}
+
+${OWN_SOURCE_ARCHIVE}: offline-speech integration source, build scripts, dated eSpeak patches, and wrapper.
 Rebuild with npm run download-assets and npm run build; scripts/build-espeak-ng.sh rebuilds eSpeak with Emscripten 7.0.0.
 
 ` +
@@ -65,10 +92,11 @@ https://huggingface.co/${MODEL_ID}/tree/${MODEL_REVISION}
 The pinned model/voice files are listed in src/assets.mjs and src/model-integrity.mjs.
 `;
 }
-function sourceIndex() {
+function sourceIndex(root) {
+  const location = sourceLocation(root);
   const bundled = SOURCE_ARCHIVE_NAMES.map(name => `<li><a href="./${escape(name)}">${escape(name)}</a></li>`).join("\n");
   const upstream = PINNED_LIBRARY_SOURCES.map(item => `<li><a href="${escape(item.repository)}/tree/${item.revision}">${escape(item.name)} ${escape(item.version)} — ${item.revision}</a><p>${escape(item.instructions)}</p><a href="${escape(item.repository)}/archive/${item.revision}.tar.gz">Pinned upstream source archive</a></li>`).join("\n");
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>offline-speech source</title><link rel="stylesheet" href="../style.css"></head><body><main id="source"><h1>Corresponding source for this offline-speech build</h1><h2>Included source archives</h2><ul>${bundled}</ul><h2>Pinned library sources and build directions</h2><ul>${upstream}</ul><h2>Model and voices</h2><p><a href="https://huggingface.co/${MODEL_ID}/tree/${MODEL_REVISION}">${MODEL_ID}, revision ${MODEL_REVISION}</a></p><p><a href="./README.txt">README.txt</a> includes archive SHA-256 hashes and rebuild directions.</p></main></body></html>\n`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>offline-speech source</title><link rel="stylesheet" href="../style.css"></head><body><main id="source"><h1>Corresponding source for this offline-speech build</h1><p>${escape(location.prefix)}<a href="${escape(location.url)}">${escape(location.url)}</a>.</p><h2>Included source archives</h2><ul>${bundled}</ul><h2>Pinned library sources and build directions</h2><ul>${upstream}</ul><h2>Model and voices</h2><p><a href="https://huggingface.co/${MODEL_ID}/tree/${MODEL_REVISION}">${MODEL_ID}, revision ${MODEL_REVISION}</a></p><p><a href="./README.txt">README.txt</a> includes archive SHA-256 hashes and rebuild directions.</p></main></body></html>\n`;
 }
 
 // Writes the integration and bundled library source archives into `output`. With `index`, also writes README.txt and an index.html,
@@ -79,6 +107,6 @@ export async function writeSourceArchives(root, output, { index = true } = {}) {
   for (const asset of SOURCE_ARCHIVES) fs.copyFileSync(path.join(root, asset.file), path.join(output, path.basename(asset.file)));
   execFileSync("tar", ["--no-xattrs", "-czf", path.join(output, OWN_SOURCE_ARCHIVE), "-C", root, "--null", "-T", "-"],
     { input: sourceFiles(root).join("\0") + "\0", env: { ...process.env, COPYFILE_DISABLE: "1" } });
-  fs.writeFileSync(path.join(output, index ? "README.txt" : "SOURCE_README.txt"), `Corresponding source for this offline-speech build\n\n${sourceDirections()}`);
-  if (index) fs.writeFileSync(path.join(output, "index.html"), sourceIndex());
+  fs.writeFileSync(path.join(output, index ? "README.txt" : "SOURCE_README.txt"), `Corresponding source for this offline-speech build\n\n${sourceDirections(root)}`);
+  if (index) fs.writeFileSync(path.join(output, "index.html"), sourceIndex(root));
 }

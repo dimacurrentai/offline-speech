@@ -118,3 +118,31 @@ test("source archives list only tracked source files, never local untracked ones
   fs.writeFileSync(path.join(root, "src", "local.env"), "SECRET=1");
   assert.deepEqual(sourceFiles(root), ["README.md", "src/app.js"]);
 });
+
+test("builds link their exact commit only from an unmodified checkout of their own", async (t) => {
+  const { REPOSITORY, sourceLocation } = await import("../scripts/source.mjs");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "offline-speech-revision-test-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const git = (...args) => execFileSync("git", ["-C", root, "-c", "user.name=test", "-c", "user.email=test@example.com", ...args], { encoding: "utf8" }).trim();
+  fs.mkdirSync(path.join(root, "src"));
+  fs.writeFileSync(path.join(root, "src", "app.js"), "app");
+  git("init", "-q");
+  git("add", "src/app.js");
+  git("commit", "-qm", "source");
+  const commit = git("rev-parse", "HEAD");
+  assert.deepEqual(sourceLocation(root), {
+    prefix: `This build is offline-speech commit ${commit}; its source is also published at `,
+    url: `${REPOSITORY}/tree/${commit}`,
+    text: `This build is offline-speech commit ${commit}; its source is also published at ${REPOSITORY}/tree/${commit}.`,
+  });
+  // Untracked files outside the archive do not matter; a changed source file does.
+  fs.writeFileSync(path.join(root, "notes.txt"), "local");
+  assert.equal(sourceLocation(root).url, `${REPOSITORY}/tree/${commit}`);
+  fs.writeFileSync(path.join(root, "src", "app.js"), "changed");
+  assert.equal(sourceLocation(root).url, REPOSITORY);
+  assert.match(sourceLocation(root).text, new RegExp(`local changes on top of offline-speech commit ${commit}`));
+  // An unpacked archive inside some other repository must not claim that repository's commit.
+  fs.mkdirSync(path.join(root, "unpacked"));
+  assert.equal(sourceLocation(path.join(root, "unpacked")).url, REPOSITORY);
+  assert.doesNotMatch(sourceLocation(path.join(root, "unpacked")).text, /commit/);
+});

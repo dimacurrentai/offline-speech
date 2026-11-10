@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { MODEL_REVISION } from "../src/model-integrity.mjs";
 import { VOICES } from "../src/assets.mjs";
-import { SOURCE_ARCHIVE_NAMES, sourceDirections } from "./source.mjs";
+import { SOURCE_ARCHIVE_NAMES, sourceDirections, sourceLocation } from "./source.mjs";
 const escape = value => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 // Embedded Jinja 0.5.3 matches the published Transformers.js 3.8.1 sourcemap
 // sourcesContent byte-for-byte; onnxruntime-common/version.js declares 1.21.0.
@@ -42,7 +42,7 @@ ${inlineTexts ? `<details><summary>offline-speech license — full GPL version 3
 <details><summary>Third-party notices — full license texts and upstream dependency inventory</summary><pre>${escape(notices)}</pre></details>` : `<p><a href="./LICENSE.txt">Full offline-speech license</a> · <a href="./THIRD_PARTY_NOTICES.txt">Full third-party notices and license texts</a>. Both files are saved with the page for offline reading.</p>`}
 <p id="source"><strong>Corresponding source for the program and its libraries.</strong> ${inlineTexts
   ? `This file is published together with ${SOURCE_ARCHIVE_NAMES.map(name => `<code>${name}</code>`).join(", ")}. The accompanying <code>SOURCE_README.txt</code> and the pinned source directions below cover ONNX Runtime, compiler/runtime components, the wrapper and PRN UI.`
-  : `${SOURCE_ARCHIVE_NAMES.map(name => `<a href="./source/${name}">${name}</a>`).join(", ")}. The <a href="./source/index.html">source index</a> and <a href="./source/README.txt">source README</a> give pinned source locations and build directions for every library, including ONNX Runtime and compiler/runtime components.`}</p>
-${inlineTexts ? `<details><summary>Pinned source and build directions for every library</summary><pre>${escape(sourceDirections())}</pre></details>` : ""}
+  : `${SOURCE_ARCHIVE_NAMES.map(name => `<a href="./source/${name}">${name}</a>`).join(", ")}. The <a href="./source/index.html">source index</a> and <a href="./source/README.txt">source README</a> give pinned source locations and build directions for every library, including ONNX Runtime and compiler/runtime components.`} ${(({ prefix, url }) => `${escape(prefix)}<a href="${escape(url)}">${escape(url)}</a>.`)(sourceLocation(root))}</p>
+${inlineTexts ? `<details><summary>Pinned source and build directions for every library</summary><pre>${escape(sourceDirections(root))}</pre></details>` : ""}
 <p>When redistributing this app, preserve notices and pass on the source archives and pinned source directions, or otherwise meet GPL corresponding-source requirements. A separate HTML page does not by itself determine the license obligations of a containing site. <a href="https://www.gnu.org/licenses/gpl-faq.html#MereAggregation">GNU GPL guidance on separate and combined works</a>.</p></section>`;
 }

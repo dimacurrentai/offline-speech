@@ -83,3 +83,15 @@ test("both pages show warranty and upstream copyright notices outside collapsed 
   const notices = fs.readFileSync(path.join(ROOT, "THIRD_PARTY_NOTICES.txt"), "utf8");
   for (const expected of ["Emscripten AUTHORS", "musl libc notices", "COPYING.UCD", "LLVM libcxx", "LLVM libcxxabi", "LLVM compiler-rt", "eSpeak NG upstream copyright"]) assert.ok(notices.includes(expected));
 });
+
+test("both builds name where their source is published", async () => {
+  const { sourceLocation } = await import("../scripts/source.mjs");
+  const { prefix, url } = sourceLocation(ROOT);
+  const link = `${prefix}<a href="${url}">${url}</a>.`;
+  for (const file of ["offline-speech.html", "hosted/index.html", "hosted/source/index.html"]) {
+    assert.ok(fs.readFileSync(path.join(ROOT, "dist", file), "utf8").includes(link), file);
+  }
+  for (const file of ["SOURCE_README.txt", "hosted/source/README.txt"]) {
+    assert.ok(fs.readFileSync(path.join(ROOT, "dist", file), "utf8").includes(`${prefix}${url}.`), file);
+  }
+});

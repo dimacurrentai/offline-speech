@@ -28,7 +28,7 @@ Generate these files during the deployment build rather than committing the roug
 
 Serve it at `https://your-site.example/tools/speech/`. All module and asset URLs are relative; there is no build-time base-URL setting. Keep the whole output directory together and preserve filenames. No server API, hosting provider SDK, runtime environment variables, or external CDN access is needed by visitors.
 
-Use HTTPS, or localhost for development. Serve `.js` and `.mjs` as JavaScript and `.html` as HTML; do not rewrite missing asset requests to a parent SPA's HTML. The service worker is scoped to the app's own directory and caches are scoped to that URL path. Removing this app's files leaves other apps on the same origin alone. The repository is private, so submodule consumers need repository access.
+Use HTTPS, or localhost for development. Serve `.js` and `.mjs` as JavaScript and `.html` as HTML; do not rewrite missing asset requests to a parent SPA's HTML. The service worker is scoped to the app's own directory and caches are scoped to that URL path. Removing this app's files leaves other apps on the same origin alone.
 
 If the parent site sets a Content Security Policy, allow same-origin scripts, styles, workers and downloads (and `blob:` in `connect-src` for integrations that read generated WAV blobs); allow WebAssembly with `script-src 'self' 'wasm-unsafe-eval'` and WAV playback with `media-src 'self' blob:`. The hosted app uses no inline scripts or styles and needs no external script origins.
 
@@ -154,7 +154,7 @@ Kokoro is the speech model; eSpeak NG is the text-to-phoneme engine. These are s
 
 `THIRD_PARTY_NOTICES.txt` contains upstream attributions, licenses, and ONNX Runtime dependency notices. The same text is embedded in the standalone HTML under **Licenses and dependencies**, so it travels with the file. The phonemizer wrapper and its embedded eSpeak NG code have different licenses; both are identified there. offline-speech’s own code is licensed under **GPL-3.0-or-later**; see [LICENSE](LICENSE). Third-party licenses remain unchanged. Both HTML builds include a visible license summary, browser dependency inventory, all locked npm development/test dependencies, and full license texts available offline. The hosted page links to separately cached `LICENSE.txt` and `THIRD_PARTY_NOTICES.txt` files to keep its HTML small; the standalone HTML embeds the full texts for portability. The npm tools are not shipped to app visitors.
 
-Every build carries integration source and source for the bundled libraries: `npm run build:standalone` writes all source archives beside `offline-speech.html`, the hosted build writes them to `source/` with an `index.html` that the page links to, and CI artifacts and releases include all source archives and SOURCE_README.txt next to the HTML. Distributors must preserve notices and pass on that source and the pinned source directions, or otherwise meet GPL corresponding-source obligations. A separate HTML page does not automatically settle whether other code is a separate or combined work; see the [GNU GPL FAQ](https://www.gnu.org/licenses/gpl-faq.html#MereAggregation). ONNX Runtime’s full upstream notices cover multiple runtime variants, so their native dependency inventory is a superset of this browser build.
+Every build carries integration source and source for the bundled libraries, and names where its source is published: a build from an unmodified checkout links its exact commit on GitHub, while a build with local changes or from an unpacked source archive links the repository and points to the archives as the exact match. `npm run build:standalone` writes all source archives beside `offline-speech.html`, the hosted build writes them to `source/` with an `index.html` that the page links to, and CI artifacts and releases include all source archives and SOURCE_README.txt next to the HTML. Distributors must preserve notices and pass on that source and the pinned source directions, or otherwise meet GPL corresponding-source obligations. A separate HTML page does not automatically settle whether other code is a separate or combined work; see the [GNU GPL FAQ](https://www.gnu.org/licenses/gpl-faq.html#MereAggregation). ONNX Runtime’s full upstream notices cover multiple runtime variants, so their native dependency inventory is a superset of this browser build.
 
 ## eSpeak NG build
 
@@ -179,9 +179,6 @@ Both pages visibly state that offline-speech comes with no warranty and may be r
 
 The eSpeak module and patches declare the offline-speech modifications dated 2026-11-10. THIRD_PARTY_NOTICES.txt includes upstream eSpeak copyright notices, COPYING.UCD, Emscripten’s license and AUTHORS, musl’s COPYRIGHT, and LLVM libc++/libc++abi/compiler-rt license texts for the pinned Emscripten 7.0.0 source. These are identified separately from ONNX Runtime’s broader notices.
 
-## Before public distribution
+## Publication
 
-The license cleanup, the Puppeteer upgrade, the pinned eSpeak NG build and corresponding-source packaging are complete; CI rebuilds the eSpeak NG module byte-for-byte on Linux. Before publication:
-
-1. Replace existing deployments, including `dima.ai/tts/`, with a build that serves its `source/` directory. Changing this repository alone does not update a hosted copy.
-2. Make the repository public only after explicit approval.
+The repository is public. The license cleanup, the Puppeteer upgrade, the pinned eSpeak NG build and corresponding-source packaging are complete, and CI rebuilds the eSpeak NG module byte-for-byte on Linux. A hosted copy, such as `dima.ai/tts/`, updates only when it is rebuilt from a newer commit.
