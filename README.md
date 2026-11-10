@@ -168,8 +168,7 @@ Builds write two corresponding-source archives: `offline-speech-source.tar.gz`, 
 
 ## Before public distribution
 
-The license cleanup, the Puppeteer upgrade, the pinned eSpeak NG build and corresponding-source packaging are complete. Before publication:
+The license cleanup, the Puppeteer upgrade, the pinned eSpeak NG build and corresponding-source packaging are complete; CI rebuilds the eSpeak NG module byte-for-byte on Linux. Before publication:
 
-1. Confirm that CI's `espeak-ng-reproducible-build` job rebuilds `third_party/espeak-ng/phonemizer.js` byte-for-byte on Linux.
-2. Replace existing deployments, including `dima.ai/tts/`, with a build that serves its `source/` directory. Changing this repository alone does not update a hosted copy.
-3. Make the repository public only after explicit approval.
+1. Replace existing deployments, including `dima.ai/tts/`, with a build that serves its `source/` directory. Changing this repository alone does not update a hosted copy.
+2. Make the repository public only after explicit approval.
