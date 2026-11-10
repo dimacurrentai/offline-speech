@@ -1,8 +1,3 @@
-Collated from Kokoro-82M, kokoro-js, Transformers.js, phonemizer/eSpeak NG, ONNX Runtime, Hugging Face Jinja, and PRN UI.
-
-The packaging and integration code is distributed under GPL-3.0-or-later.
-Third-party components retain their own copyright notices and licenses.
-
                     GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
 
