@@ -1,3 +1,5 @@
+Modified by offline-speech, 2026-11-10.
+
 Remove the "Make this a worker" block from emscripten/post.js, as phonemizer.js did (commit
 609bebe, "Remove worker-specific post-processing"): the module runs inside the app's own speech
 worker, whose message handler it must not replace.

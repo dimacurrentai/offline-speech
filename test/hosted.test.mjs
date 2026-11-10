@@ -62,23 +62,26 @@ test("hosted output is self-contained, integrity-pinned, and fits static-host fi
 
 test("hosted output carries its corresponding source outside the offline payload", async () => {
   const { MANIFEST } = await import(pathToFileURL(path.join(HOSTED, "manifest.js")));
-  const { ESPEAK_NG_SOURCE } = await import("../src/assets.mjs");
+  const { SOURCE_ARCHIVES, SOURCE_ARCHIVE_NAMES } = await import("../scripts/source.mjs");
+  const { PINNED_LIBRARY_SOURCES } = await import("../src/library-sources.mjs");
   const { verifyFile } = await import("../scripts/files.mjs");
   const dir = path.join(HOSTED, "source");
-  assert.deepEqual(fs.readdirSync(dir).sort(), [path.basename(ESPEAK_NG_SOURCE.file), "README.txt", "index.html", "offline-speech-source.tar.gz"].sort());
-  assert.ok(await verifyFile(path.join(dir, path.basename(ESPEAK_NG_SOURCE.file)), ESPEAK_NG_SOURCE));
+  assert.deepEqual(fs.readdirSync(dir).sort(), [...SOURCE_ARCHIVE_NAMES, "README.txt", "index.html"].sort());
+  for (const asset of SOURCE_ARCHIVES) assert.ok(await verifyFile(path.join(dir, path.basename(asset.file)), asset));
   const listed = execFileSync("tar", ["-tzf", path.join(dir, "offline-speech-source.tar.gz")], { encoding: "utf8" }).split("\n");
-  for (const file of ["LICENSE", "scripts/build-espeak-ng.sh", "src/phonemizer-wrapper.js", "third_party/espeak-ng/phonemizer.js",
+  for (const file of ["LICENSE", "src/library-sources.mjs", "scripts/build-espeak-ng.sh", "src/phonemizer-wrapper.js", "third_party/espeak-ng/phonemizer.js",
     "third_party/espeak-ng/patches/0001-compat-wctype-declare-before-renaming.patch"]) assert.ok(listed.includes(file), file);
   assert.ok(!listed.some((file) => /^(\.git|node_modules|models|dist|vendor)\//.test(file)));
   assert.ok(!JSON.stringify(MANIFEST).includes("source/"));
   const page = fs.readFileSync(path.join(HOSTED, "index.html"), "utf8");
   // Every source link resolves to a file, so hosts without directory listings serve them.
   const links = [...page.matchAll(/href="\.\/(source\/[^"]*)"/g)].map((match) => match[1]);
-  assert.deepEqual(links.sort(), [`source/${path.basename(ESPEAK_NG_SOURCE.file)}`, "source/index.html", "source/offline-speech-source.tar.gz"].sort());
+  assert.deepEqual(links.sort(), [...SOURCE_ARCHIVE_NAMES.map(name => `source/${name}`), "source/index.html", "source/README.txt"].sort());
   for (const link of links) assert.ok(fs.statSync(path.join(HOSTED, link)).isFile(), link);
   const index = fs.readFileSync(path.join(dir, "index.html"), "utf8");
   for (const name of fs.readdirSync(dir).filter((name) => name !== "index.html")) assert.ok(index.includes(`href="./${name}"`), name);
+  const directions = fs.readFileSync(path.join(dir, "README.txt"), "utf8");
+  for (const item of PINNED_LIBRARY_SOURCES) { assert.ok(index.includes(item.revision)); assert.ok(directions.includes(item.revision)); }
 });
 
 test("a subdirectory bookmark survives a cold offline browser and lets users reclaim disk and RAM", { timeout: 420000 }, async (t) => {

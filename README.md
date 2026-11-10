@@ -111,7 +111,7 @@ The included workflow already caches `models/` and `vendor/` separately. For a p
 
 Adjust the submodule path to match your checkout. Do not cache generated output in Git; downloads are still verified against pinned SHA-256 hashes after restoration.
 
-Successful CI runs retain builds for 30 days. A `v*` tag publishes the tested standalone HTML, a deployable hosted archive, both corresponding-source archives, checksums, and notices as a GitHub release. Release assets will appear on the [releases page](https://github.com/dimacurrentai/offline-speech/releases) when a version tag is published.
+Successful CI runs retain builds for 30 days. A `v*` tag publishes the tested standalone HTML, a deployable hosted archive, all corresponding-source archives, checksums, and notices as a GitHub release. Release assets will appear on the [releases page](https://github.com/dimacurrentai/offline-speech/releases) when a version tag is published.
 
 ## Implementation
 
@@ -134,14 +134,17 @@ Preparation shows sentence breaks, real phoneme-generation stages through an exp
 | Component | Version / revision | License |
 | --- | --- | --- |
 | [PRN UI (adapted palette and button geometry)](https://github.com/dkorolev/prnui/tree/986d93b681cb49f28b8fcd3069e2b3a04dad1a3f) | 986d93b681cb49f28b8fcd3069e2b3a04dad1a3f | **MIT** |
-| [onnx-community/Kokoro-82M-v1.0-ONNX (model and six voices)](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/tree/1939ad2a8e416c0acfeecc08a694d14ef25f2231) | 1939ad2a8e416c0acfeecc08a694d14ef25f2231 | **Apache-2.0** |
-| [kokoro-js](https://github.com/hexgrad/kokoro) | 1.2.1 | **Apache-2.0** |
-| [@huggingface/transformers](https://github.com/huggingface/transformers.js) | 3.8.1 | **Apache-2.0** |
+| [Kokoro-82M model and six voices](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/tree/1939ad2a8e416c0acfeecc08a694d14ef25f2231) | 1939ad2a8e416c0acfeecc08a694d14ef25f2231 | **Apache-2.0** |
+| [kokoro-js](https://github.com/hexgrad/kokoro/tree/664c76a704021239ba59c84dcbaa4d3dece01fe9) | 1.2.1 | **Apache-2.0** |
+| [@huggingface/transformers](https://github.com/huggingface/transformers.js/tree/2ec882e739e4cb461f8d440d4d7394cbf5372429) | 3.8.1 | **Apache-2.0** |
 | [phonemizer JavaScript wrapper (adapted)](https://github.com/xenova/phonemizer.js/tree/6835144b7ee9043129222549c1ed2f6a27216278) | 1.2.1 (6835144b7ee9043129222549c1ed2f6a27216278) | **Apache-2.0** |
 | [eSpeak NG code and language data (built by offline-speech)](https://github.com/espeak-ng/espeak-ng/tree/890071ff30231883d761e4d59edabd6d69faf159) | 890071ff30231883d761e4d59edabd6d69faf159 | **GPL-3.0-or-later** |
+| [Emscripten runtime](https://github.com/emscripten-core/emscripten/tree/777e6e5db7b4990bcaeb1b9998ed642cc84e6629) | 7.0.0 (777e6e5db7b4990bcaeb1b9998ed642cc84e6629) | **MIT OR NCSA** |
+| [musl libc and LLVM libc++/libc++abi/compiler-rt](https://github.com/emscripten-core/emscripten/tree/777e6e5db7b4990bcaeb1b9998ed642cc84e6629/system/lib) | Vendored by Emscripten 7.0.0 | **musl: MIT and component notices; LLVM: Apache-2.0 WITH LLVM-exception** |
+| [Unicode character data in eSpeak NG ucd-tools](https://github.com/espeak-ng/espeak-ng/blob/890071ff30231883d761e4d59edabd6d69faf159/COPYING.UCD) | eSpeak NG 890071ff30231883d761e4d59edabd6d69faf159 | **Unicode data/software license (COPYING.UCD)** |
 | [ONNX Runtime Web (JavaScript and WASM)](https://github.com/microsoft/onnxruntime/tree/89f8206ba4f1c22c39e0297fb55272e8ce8cd7d0) | 1.22.0-dev.20250409-89f8206ba4 | **MIT** |
-| [onnxruntime-common (inside Transformers.js)](https://github.com/microsoft/onnxruntime/tree/v1.21.0) | 1.21.0 | **MIT** |
-| [@huggingface/jinja (inside Transformers.js)](https://github.com/huggingface/huggingface.js) | 0.5.3 | **MIT** |
+| [onnxruntime-common (inside Transformers.js)](https://github.com/microsoft/onnxruntime/tree/e0b66cad282043d4377cea5269083f17771b6dfc) | 1.21.0 | **MIT** |
+| [@huggingface/jinja (inside Transformers.js)](https://github.com/huggingface/huggingface.js/tree/c3f76b460cbfe5a9827123ab9e17a65998aeb70f) | 0.5.3 | **MIT** |
 
 Kokoro is the speech model; eSpeak NG is the text-to-phoneme engine. These are separate components with separate licenses. The phonemizer JavaScript wrapper itself is Apache-2.0. Both names, roles, repository links, and licenses appear directly in each HTML page’s visible license summary, without opening the detailed inventory.
 
@@ -151,7 +154,7 @@ Kokoro is the speech model; eSpeak NG is the text-to-phoneme engine. These are s
 
 `THIRD_PARTY_NOTICES.txt` contains upstream attributions, licenses, and ONNX Runtime dependency notices. The same text is embedded in the standalone HTML under **Licenses and dependencies**, so it travels with the file. The phonemizer wrapper and its embedded eSpeak NG code have different licenses; both are identified there. offline-speech’s own code is licensed under **GPL-3.0-or-later**; see [LICENSE](LICENSE). Third-party licenses remain unchanged. Both HTML builds include a visible license summary, browser dependency inventory, all locked npm development/test dependencies, and full license texts available offline. The hosted page links to separately cached `LICENSE.txt` and `THIRD_PARTY_NOTICES.txt` files to keep its HTML small; the standalone HTML embeds the full texts for portability. The npm tools are not shipped to app visitors.
 
-Every build carries its corresponding source: `npm run build:standalone` writes both archives beside `offline-speech.html`, the hosted build writes them to `source/` with an `index.html` that the page links to, and CI artifacts and releases include both archives next to the HTML. Distributors must preserve notices and pass on that source, or otherwise meet GPL corresponding-source obligations. A separate HTML page does not automatically settle whether other code is a separate or combined work; see the [GNU GPL FAQ](https://www.gnu.org/licenses/gpl-faq.html#MereAggregation). ONNX Runtime’s full upstream notices cover multiple runtime variants, so their native dependency inventory is a superset of this browser build.
+Every build carries integration source and source for the bundled libraries: `npm run build:standalone` writes all source archives beside `offline-speech.html`, the hosted build writes them to `source/` with an `index.html` that the page links to, and CI artifacts and releases include all source archives and SOURCE_README.txt next to the HTML. Distributors must preserve notices and pass on that source and the pinned source directions, or otherwise meet GPL corresponding-source obligations. A separate HTML page does not automatically settle whether other code is a separate or combined work; see the [GNU GPL FAQ](https://www.gnu.org/licenses/gpl-faq.html#MereAggregation). ONNX Runtime’s full upstream notices cover multiple runtime variants, so their native dependency inventory is a superset of this browser build.
 
 ## eSpeak NG build
 
@@ -164,7 +167,17 @@ scripts/build-espeak-ng.sh
 
 The script needs Git, CMake and a native C/C++ compiler; the `emscripten/emsdk:7.0.0` container provides all of them. CI rebuilds the module that way and fails if it differs from the committed file.
 
-Builds write two corresponding-source archives: `offline-speech-source.tar.gz`, this repository's tracked source files (only the paths listed in `scripts/source.mjs`, never untracked local files) including the build script, patches and wrapper, and `espeak-ng-890071ff30231883d761e4d59edabd6d69faf159.tar.gz`, GitHub's archive of the pinned eSpeak NG commit, downloaded by `npm run download-assets` and checked against its SHA-256.
+Builds write five corresponding-source archives: `offline-speech-source.tar.gz` for this repository’s tracked integration source; `espeak-ng-890071ff30231883d761e4d59edabd6d69faf159.tar.gz`; `kokoro-js-1.2.1-source.tar.gz`; `transformers-js-3.8.1-source.tar.gz`; and `huggingface-jinja-0.5.3-source.tar.gz`. Upstream archives are downloaded by `npm run download-assets` and checked against pinned SHA-256 hashes. The integration archive includes only the tracked paths listed in `scripts/source.mjs`, never untracked local files.
+
+## Library source and legal notices
+
+The source index and README identify every shipped library by a fixed upstream commit and give its source archive and build directions. Kokoro and Transformers.js use their published npm gitHead commits. Jinja 0.5.3 uses commit c3f76b460cbfe5a9827123ab9e17a65998aeb70f, identified by its npm release provenance. The embedded Jinja code matches that release, and the ONNX common code identifies itself as 1.21.0.
+
+Both build targets bundle SHA-256-verified source archives for kokoro-js 1.2.1, Transformers.js 3.8.1, Jinja 0.5.3, and eSpeak NG, plus this repository’s integration source. The source index links directly to pinned ONNX Runtime, compiler/runtime, wrapper and PRN UI source trees and archives. It also includes the pinned Kokoro model/voice revision. Standalone output includes SOURCE_README.txt beside the HTML and inlines the same directions in its license section. Hosted output places all of these under source/; those source archives are not part of the offline speech download.
+
+Both pages visibly state that offline-speech comes with no warranty and may be redistributed under GPLv3 or later, and show eSpeak NG’s upstream copyright notices with directions to the full GPL. This preserves the distinct licenses of the bundled components without asserting a personal project copyright.
+
+The eSpeak module and patches declare the offline-speech modifications dated 2026-11-10. THIRD_PARTY_NOTICES.txt includes upstream eSpeak copyright notices, COPYING.UCD, Emscripten’s license and AUTHORS, musl’s COPYRIGHT, and LLVM libc++/libc++abi/compiler-rt license texts for the pinned Emscripten 7.0.0 source. These are identified separately from ONNX Runtime’s broader notices.
 
 ## Before public distribution
 

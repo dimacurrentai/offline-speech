@@ -57,12 +57,29 @@ test("hosted HTML stays small while full licenses remain in the offline shell", 
   }
 });
 
-test("the standalone build writes both corresponding-source archives beside the HTML", async () => {
+test("the standalone build writes all library source archives and pinned directions beside the HTML", async () => {
+  const { SOURCE_ARCHIVES } = await import("../scripts/source.mjs");
   const dist = path.join(ROOT, "dist");
+  for (const asset of SOURCE_ARCHIVES) assert.ok(await verifyFile(path.join(dist, path.basename(asset.file)), asset));
+  assert.ok(fs.readFileSync(path.join(dist, "SOURCE_README.txt"), "utf8").includes("ONNX Runtime"));
   assert.ok(await verifyFile(path.join(dist, path.basename(ESPEAK_NG_SOURCE.file)), ESPEAK_NG_SOURCE));
   const own = path.join(dist, "offline-speech-source.tar.gz");
   assert.ok(fs.statSync(own).size > 0);
   const html = fs.readFileSync(path.join(dist, "offline-speech.html"), "utf8");
   assert.ok(html.includes(`<code>${path.basename(ESPEAK_NG_SOURCE.file)}</code>`));
   assert.ok(html.includes("<code>offline-speech-source.tar.gz</code>"));
+});
+
+
+test("both pages show warranty and upstream copyright notices outside collapsed details", () => {
+  for (const file of ["dist/offline-speech.html", "dist/hosted/index.html"]) {
+    const html = fs.readFileSync(path.join(ROOT, file), "utf8");
+    const start = html.indexOf('<section id="licenses"');
+    const visible = html.slice(start, html.indexOf("<details>", start));
+    assert.match(visible, /comes with no warranty; you may redistribute it under GPLv3 or later/);
+    assert.match(visible, /Copyright \(C\) 2005 to 2014 by Jonathan Duddington/);
+    assert.match(visible, /Copyright \(C\) 2015-2017 Reece H\. Dunn/);
+  }
+  const notices = fs.readFileSync(path.join(ROOT, "THIRD_PARTY_NOTICES.txt"), "utf8");
+  for (const expected of ["Emscripten AUTHORS", "musl libc notices", "COPYING.UCD", "LLVM libcxx", "LLVM libcxxabi", "LLVM compiler-rt", "eSpeak NG upstream copyright"]) assert.ok(notices.includes(expected));
 });

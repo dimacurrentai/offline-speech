@@ -4,10 +4,15 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { ESPEAK_NG_COMMIT, ESPEAK_NG_SOURCE } from "../src/assets.mjs";
+import { LIBRARY_SOURCE_ARCHIVES, PINNED_LIBRARY_SOURCES } from "../src/library-sources.mjs";
+import { MODEL_ID } from "../src/assets.mjs";
+import { MODEL_REVISION } from "../src/model-integrity.mjs";
 import { verifyFile } from "./files.mjs";
 
 export const OWN_SOURCE_ARCHIVE = "offline-speech-source.tar.gz";
 export const ESPEAK_NG_SOURCE_ARCHIVE = path.basename(ESPEAK_NG_SOURCE.file);
+export const SOURCE_ARCHIVES = [ESPEAK_NG_SOURCE, ...LIBRARY_SOURCE_ARCHIVES];
+export const SOURCE_ARCHIVE_NAMES = [OWN_SOURCE_ARCHIVE, ...SOURCE_ARCHIVES.map(asset => path.basename(asset.file))];
 
 // The repository's source paths. Only these are archived, so local files such as .env never are.
 export const SOURCE_PATHS = [".github", ".gitignore", "LICENSE", "README.md", "THIRD_PARTY_NOTICES.txt",
@@ -34,42 +39,46 @@ export function sourceFiles(root) {
 }
 
 export async function checkSourceInputs(root) {
-  if (!(await verifyFile(path.join(root, ESPEAK_NG_SOURCE.file), ESPEAK_NG_SOURCE))) {
-    throw new Error(`Missing or corrupt ${ESPEAK_NG_SOURCE.file}; run npm run download-assets`);
+  for (const asset of SOURCE_ARCHIVES) {
+    if (!(await verifyFile(path.join(root, asset.file), asset))) {
+      throw new Error(`Missing or corrupt ${asset.file}; run npm run download-assets`);
+    }
   }
 }
 
-const ARCHIVES = `${OWN_SOURCE_ARCHIVE}
-  offline-speech's own source (GPL-3.0-or-later), including scripts/build-espeak-ng.sh,
-  third_party/espeak-ng/patches/ and src/phonemizer-wrapper.js. Run npm run download-assets and
-  npm run build to rebuild the app; scripts/build-espeak-ng.sh rebuilds the eSpeak NG module,
-  third_party/espeak-ng/phonemizer.js, with Emscripten 7.0.0.
+const escape = value => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
+export function sourceDirections() {
+  return `${OWN_SOURCE_ARCHIVE}: offline-speech integration source, build scripts, dated eSpeak patches, and wrapper.
+Rebuild with npm run download-assets and npm run build; scripts/build-espeak-ng.sh rebuilds eSpeak with Emscripten 7.0.0.
 
-${ESPEAK_NG_SOURCE_ARCHIVE}
-  eSpeak NG (GPL-3.0-or-later) at commit ${ESPEAK_NG_COMMIT}, as published at
-  ${ESPEAK_NG_SOURCE.url}
-  sha256 ${ESPEAK_NG_SOURCE.sha256}
+` +
+    SOURCE_ARCHIVES.map(asset => `${path.basename(asset.file)}
+  ${asset.url}
+  sha256 ${asset.sha256}`).join("\n\n") + "\n\nPinned source and build directions for every library:\n\n" +
+    PINNED_LIBRARY_SOURCES.map(item => `${item.name} ${item.version}
+  commit ${item.revision}
+  ${item.repository}/tree/${item.revision}
+  archive: ${item.archive ?? `${item.repository}/archive/${item.revision}.tar.gz`}
+  ${item.instructions}`).join("\n\n") +
+    `\n\nKokoro model and six voices: ${MODEL_ID}, revision ${MODEL_REVISION}.
+https://huggingface.co/${MODEL_ID}/tree/${MODEL_REVISION}
+The pinned model/voice files are listed in src/assets.mjs and src/model-integrity.mjs.
 `;
+}
+function sourceIndex() {
+  const bundled = SOURCE_ARCHIVE_NAMES.map(name => `<li><a href="./${escape(name)}">${escape(name)}</a></li>`).join("\n");
+  const upstream = PINNED_LIBRARY_SOURCES.map(item => `<li><a href="${escape(item.repository)}/tree/${item.revision}">${escape(item.name)} ${escape(item.version)} — ${item.revision}</a><p>${escape(item.instructions)}</p><a href="${escape(item.repository)}/archive/${item.revision}.tar.gz">Pinned upstream source archive</a></li>`).join("\n");
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>offline-speech source</title></head><body><h1>Corresponding source for this offline-speech build</h1><h2>Included source archives</h2><ul>${bundled}</ul><h2>Pinned library sources and build directions</h2><ul>${upstream}</ul><h2>Model and voices</h2><p><a href="https://huggingface.co/${MODEL_ID}/tree/${MODEL_REVISION}">${MODEL_ID}, revision ${MODEL_REVISION}</a></p><p><a href="./README.txt">README.txt</a> includes archive SHA-256 hashes and rebuild directions.</p></body></html>\n`;
+}
 
-const INDEX = `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>offline-speech source</title></head>
-<body><h1>Corresponding source for this offline-speech build</h1>
-<ul><li><a href="./${OWN_SOURCE_ARCHIVE}">${OWN_SOURCE_ARCHIVE}</a>: offline-speech’s own source (GPL-3.0-or-later), including the eSpeak NG build script, patches and wrapper.</li>
-<li><a href="./${ESPEAK_NG_SOURCE_ARCHIVE}">${ESPEAK_NG_SOURCE_ARCHIVE}</a>: eSpeak NG (GPL-3.0-or-later) at commit ${ESPEAK_NG_COMMIT}, sha256 ${ESPEAK_NG_SOURCE.sha256}.</li></ul>
-<p><a href="./README.txt">README.txt</a> explains how to rebuild from them.</p></body></html>
-`;
-
-// Writes both archives into `output`. With `index`, also writes README.txt and an index.html,
+// Writes the integration and bundled library source archives into `output`. With `index`, also writes README.txt and an index.html,
 // so a static host serves the directory as a page without relying on directory listings.
 export async function writeSourceArchives(root, output, { index = true } = {}) {
   await checkSourceInputs(root);
   fs.mkdirSync(output, { recursive: true });
-  fs.copyFileSync(path.join(root, ESPEAK_NG_SOURCE.file), path.join(output, ESPEAK_NG_SOURCE_ARCHIVE));
+  for (const asset of SOURCE_ARCHIVES) fs.copyFileSync(path.join(root, asset.file), path.join(output, path.basename(asset.file)));
   execFileSync("tar", ["--no-xattrs", "-czf", path.join(output, OWN_SOURCE_ARCHIVE), "-C", root, "--null", "-T", "-"],
     { input: sourceFiles(root).join("\0") + "\0", env: { ...process.env, COPYFILE_DISABLE: "1" } });
-  if (index) {
-    fs.writeFileSync(path.join(output, "README.txt"), `Corresponding source for this offline-speech build\n\n${ARCHIVES}`);
-    fs.writeFileSync(path.join(output, "index.html"), INDEX);
-  }
+  fs.writeFileSync(path.join(output, index ? "README.txt" : "SOURCE_README.txt"), `Corresponding source for this offline-speech build\n\n${sourceDirections()}`);
+  if (index) fs.writeFileSync(path.join(output, "index.html"), sourceIndex());
 }

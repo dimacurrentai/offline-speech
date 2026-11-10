@@ -1,3 +1,5 @@
+Modified by offline-speech, 2026-11-10.
+
 Request IPA without a separator between phonemes in synth_ipa_ (emscripten/espeakng_glue.cpp).
 With the space separator, this eSpeak NG version puts a space between every phoneme; kokoro-js
 expects joined phonemes with spaces only between words, which is the output of phonemizer 1.2.1.

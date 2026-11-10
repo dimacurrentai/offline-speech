@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import path from "node:path";
+import { LIBRARY_SOURCE_ARCHIVES } from "../src/library-sources.mjs";
 import { fileURLToPath } from "node:url";
 import { ESPEAK_NG_SOURCE, LIBRARY_FILES, MODEL_FILES, MODEL_URL } from "../src/assets.mjs";
 import { MODEL_INTEGRITY } from "../src/model-integrity.mjs";
@@ -13,7 +14,7 @@ if (process.argv.length > 3 || (mode && !["--model", "--libraries"].includes(mod
   process.exit(1);
 }
 const assets = [
-  ...(mode === "--model" ? [] : [...LIBRARY_FILES, ESPEAK_NG_SOURCE]),
+  ...(mode === "--model" ? [] : [...LIBRARY_FILES, ESPEAK_NG_SOURCE, ...LIBRARY_SOURCE_ARCHIVES]),
   ...(mode === "--libraries" ? [] : MODEL_FILES.map((file) => ({
     file: `models/${file}`, url: `${MODEL_URL}/${file}`, ...MODEL_INTEGRITY[file],
   }))),

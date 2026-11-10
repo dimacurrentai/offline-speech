@@ -1,3 +1,5 @@
+Modified by offline-speech, 2026-11-10.
+
 Include <wchar.h> before src/include/compat/wctype.h renames the isw* functions to ucd-tools.
 Current Emscripten declares them in wchar.h as well, which otherwise fails to compile. Calls still
 go to ucd-tools, as on other platforms; upstream later disabled the renaming under Emscripten
