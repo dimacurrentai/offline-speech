@@ -63,7 +63,7 @@ export const LIBRARY_FILES = [
     "file": "third_party/espeak-ng/phonemizer.js",
     "type": "text/javascript",
     "size": 1552431,
-    "sha256": "258999c120d94a2d9ea5c18557e75134812cd7901e08b81f9211c137d35dfd00"
+    "sha256": "1c8622bd1568bb4bfc987121baae32141535a3d78798ca47051967fcf6a3bc5e"
   },
   {
     "name": "ort.mjs",

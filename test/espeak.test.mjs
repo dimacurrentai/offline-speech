@@ -18,9 +18,12 @@ test("the committed eSpeak NG module matches its pinned build and source revisio
   assert.ok(ESPEAK_NG_SOURCE.url.endsWith(`/${ESPEAK_NG_COMMIT}.tar.gz`));
   const header = fs.readFileSync(path.join(ROOT, MODULE.file), "latin1").slice(0, 400);
   assert.ok(header.includes(`eSpeak NG ${ESPEAK_NG_COMMIT}`));
-  assert.match(header, /Modified by offline-speech, 2026-11-10: patches 0001-0003/);
+  // One modification date, kept in the build script, dates the module and every patch.
+  const date = /^MODIFIED_DATE=(\d{4}-\d{2}-\d{2})$/m.exec(script)?.[1];
+  assert.ok(date, "build-espeak-ng.sh must set MODIFIED_DATE");
+  assert.ok(header.includes(`with Emscripten 7.0.0.\n// Modified by offline-speech, ${date}: patches 0001-0003`));
   for (const patch of fs.readdirSync(path.join(ROOT, "third_party/espeak-ng/patches"))) {
-    assert.match(fs.readFileSync(path.join(ROOT, "third_party/espeak-ng/patches", patch), "utf8"), /^Modified by offline-speech, 2026-11-10/);
+    assert.ok(fs.readFileSync(path.join(ROOT, "third_party/espeak-ng/patches", patch), "utf8").startsWith(`Modified by offline-speech, ${date}.\n`), patch);
   }
   const wrapper = fs.readFileSync(path.join(ROOT, "src", "phonemizer-wrapper.js"), "utf8");
   assert.ok(fs.readFileSync(path.join(ROOT, MODULE.file), "utf8").endsWith(wrapper), "the module must end with the wrapper");
