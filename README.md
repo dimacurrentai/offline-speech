@@ -92,7 +92,7 @@ npm ci                   # installs only browser-test tooling
 npm test                 # after downloading and building both targets
 ```
 
-Set `CHROME_PATH` when Chrome/Chromium is not found automatically. In containers that cannot launch Chrome's sandbox, explicitly set `CHROME_NO_SANDBOX=1`. CI runs unit tests on Node 20 and the browser suites on Node 22.
+Set `CHROME_PATH` when Chrome/Chromium is not found automatically. In containers that cannot launch Chrome's sandbox, explicitly set `CHROME_NO_SANDBOX=1`. CI runs unit tests on Node 20 and the browser suites on Node 22; Puppeteer 25 needs Node 22.12 or later.
 
 The standalone suite checks all six voices with external requests blocked. Hosted tests use a nested deployment path, interrupt and resume a download, verify progress and payload hashes, unload real workers, close the browser, stop the HTTP server, reopen the bookmark in a new offline browser process, and synthesize a real WAV. They also delete files offline, verify that the small shell still opens, check that a foreign app's cache survives, reinstall files, and verify cross-tab unloading.
 
@@ -145,7 +145,7 @@ Preparation shows sentence breaks, real phoneme-generation stages through an exp
 
 Kokoro is the speech model; eSpeak NG is the text-to-phoneme engine. These are separate components with separate licenses. The phonemizer JavaScript wrapper itself is Apache-2.0. Both names, roles, repository links, and licenses appear directly in each HTML page’s visible license summary, without opening the detailed inventory.
 
-**Development/test tooling:** `puppeteer-core` 24.10.0 is **Apache-2.0** and is not shipped to visitors. Its complete transitive npm dependency inventory, with each package’s version and license, is included in both HTML builds and recorded in [package-lock.json](package-lock.json). Builds use Node’s built-ins; no npm runtime dependency is installed for production.
+**Development/test tooling:** `puppeteer-core` 25.16.0 is **Apache-2.0** and is not shipped to visitors. Its complete transitive npm dependency inventory, with each package’s version and license, is included in both HTML builds and recorded in [package-lock.json](package-lock.json). Builds use Node’s built-ins; no npm runtime dependency is installed for production.
 
 **The built HTML includes eSpeak NG code licensed under GPL-3.0-or-later (GNU General Public License version 3 or later).** This GPL-covered code is part of the HTML you share. It is bundled by phonemizer; the phonemizer wrapper's Apache-2.0 license is separate from the eSpeak NG license. The full GPL text is included in the HTML's notices, and the [eSpeak NG source](https://github.com/espeak-ng/espeak-ng) is available upstream.
 

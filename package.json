@@ -8,7 +8,7 @@
     "download-model": "node scripts/download-assets.mjs --model",
     "build": "node scripts/build.mjs && node scripts/build-hosted.mjs",
     "test": "node --test",
-    "test:unit": "node --test test/audio.test.mjs test/build.test.mjs test/download.test.mjs test/unpack.test.mjs",
+    "test:unit": "node --test test/audio.test.mjs test/build.test.mjs test/download.test.mjs test/espeak.test.mjs test/unpack.test.mjs",
     "test:e2e": "node --test test/artifact.test.mjs test/e2e.test.mjs test/hosted.test.mjs",
     "download-libraries": "node scripts/download-assets.mjs --libraries",
     "download-assets": "node scripts/download-assets.mjs",
@@ -17,7 +17,7 @@
     "preview:hosted": "node scripts/serve-hosted.mjs"
   },
   "devDependencies": {
-    "puppeteer-core": "24.10.0"
+    "puppeteer-core": "25.16.0"
   },
   "engines": {
     "node": ">=20"
