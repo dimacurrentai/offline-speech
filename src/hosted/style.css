@@ -38,3 +38,5 @@ section[aria-current="step"] { border-left:3px solid var(--accent); }
 @media(prefers-reduced-motion:no-preference) { html { scroll-behavior:smooth; } }
 
 .sentence-progress { max-height:240px; overflow:auto; padding-left:28px; } .sentence-progress li { margin:8px 0; } .sentence-progress small { display:block; } .sentence-progress [aria-current="step"] { color:var(--accent); }
+
+#source { overflow-wrap:anywhere; }
