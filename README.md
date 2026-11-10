@@ -151,7 +151,7 @@ Kokoro is the speech model; eSpeak NG is the text-to-phoneme engine. These are s
 
 `THIRD_PARTY_NOTICES.txt` contains upstream attributions, licenses, and ONNX Runtime dependency notices. The same text is embedded in the standalone HTML under **Licenses and dependencies**, so it travels with the file. The phonemizer wrapper and its embedded eSpeak NG code have different licenses; both are identified there. offline-speech’s own code is licensed under **GPL-3.0-or-later**; see [LICENSE](LICENSE). Third-party licenses remain unchanged. Both HTML builds include a visible license summary, browser dependency inventory, all locked npm development/test dependencies, and full license texts available offline. The hosted page links to separately cached `LICENSE.txt` and `THIRD_PARTY_NOTICES.txt` files to keep its HTML small; the standalone HTML embeds the full texts for portability. The npm tools are not shipped to app visitors.
 
-Every build carries its corresponding source: the hosted build writes `source/` beside the page, and CI artifacts and releases include both archives next to the HTML. Distributors must preserve notices and pass on that source, or otherwise meet GPL corresponding-source obligations. A separate HTML page does not automatically settle whether other code is a separate or combined work; see the [GNU GPL FAQ](https://www.gnu.org/licenses/gpl-faq.html#MereAggregation). ONNX Runtime’s full upstream notices cover multiple runtime variants, so their native dependency inventory is a superset of this browser build.
+Every build carries its corresponding source: `npm run build:standalone` writes both archives beside `offline-speech.html`, the hosted build writes them to `source/` with an `index.html` that the page links to, and CI artifacts and releases include both archives next to the HTML. Distributors must preserve notices and pass on that source, or otherwise meet GPL corresponding-source obligations. A separate HTML page does not automatically settle whether other code is a separate or combined work; see the [GNU GPL FAQ](https://www.gnu.org/licenses/gpl-faq.html#MereAggregation). ONNX Runtime’s full upstream notices cover multiple runtime variants, so their native dependency inventory is a superset of this browser build.
 
 ## eSpeak NG build
 
@@ -164,7 +164,7 @@ scripts/build-espeak-ng.sh
 
 The script needs Git, CMake and a native C/C++ compiler; the `emscripten/emsdk:7.0.0` container provides all of them. CI rebuilds the module that way and fails if it differs from the committed file.
 
-Builds write two corresponding-source archives: `offline-speech-source.tar.gz`, this repository's source including the build script, patches and wrapper, and `espeak-ng-890071ff30231883d761e4d59edabd6d69faf159.tar.gz`, GitHub's archive of the pinned eSpeak NG commit, downloaded by `npm run download-assets` and checked against its SHA-256.
+Builds write two corresponding-source archives: `offline-speech-source.tar.gz`, this repository's tracked source files (only the paths listed in `scripts/source.mjs`, never untracked local files) including the build script, patches and wrapper, and `espeak-ng-890071ff30231883d761e4d59edabd6d69faf159.tar.gz`, GitHub's archive of the pinned eSpeak NG commit, downloaded by `npm run download-assets` and checked against its SHA-256.
 
 ## Before public distribution
 

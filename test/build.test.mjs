@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import { buildHosted } from "../scripts/build-hosted.mjs";
 import { atomicWrite, build, inlineApp } from "../scripts/build.mjs";
 
@@ -96,4 +97,24 @@ test("license disclosure includes browser components, the entire tooling graph a
 test("an unsupported Kokoro build requires an explicit adapter review", async () => {
   const { withPhonemeProgress } = await import("../scripts/kokoro.mjs");
   assert.throws(() => withPhonemeProgress("changed upstream implementation"), /review the phoneme-progress adapter/);
+});
+
+test("source archives list only tracked source files, never local untracked ones", async (t) => {
+  const { SOURCE_PATHS, sourceFiles } = await import("../scripts/source.mjs");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "offline-speech-source-test-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(root, "src"));
+  fs.writeFileSync(path.join(root, "src", "app.js"), "app");
+  fs.writeFileSync(path.join(root, "README.md"), "readme");
+  // Without Git metadata, as in an unpacked source archive, only the listed source paths count.
+  fs.writeFileSync(path.join(root, ".env"), "SECRET=1");
+  fs.writeFileSync(path.join(root, "notes.txt"), "local");
+  assert.ok(!SOURCE_PATHS.includes(".env"));
+  assert.deepEqual(sourceFiles(root), ["README.md", path.join("src", "app.js")]);
+  // In a Git checkout, unignored but untracked files inside source paths stay out too.
+  const git = (...args) => execFileSync("git", ["-C", root, ...args], { stdio: "ignore" });
+  git("init", "-q");
+  git("add", "README.md", "src/app.js");
+  fs.writeFileSync(path.join(root, "src", "local.env"), "SECRET=1");
+  assert.deepEqual(sourceFiles(root), ["README.md", "src/app.js"]);
 });

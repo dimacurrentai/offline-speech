@@ -6,7 +6,7 @@ import { renderLicenses } from "./licenses.mjs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { writeSourceArchives } from "./source.mjs";
+import { checkSourceInputs, writeSourceArchives } from "./source.mjs";
 import { LIBRARY_FILES, MODEL_FILES, MODEL_ID, VOICES } from "../src/assets.mjs";
 import { MODEL_INTEGRITY } from "../src/model-integrity.mjs";
 import { verifyFile } from "./files.mjs";
@@ -29,6 +29,7 @@ export async function buildHosted({ root = ROOT, output = path.join(root, "dist"
   for (const source of sources) {
     if (!(await verifyFile(path.join(root, source.file), source))) throw new Error(`Missing or corrupt ${source.file}; ${source.kind === "library" && !source.url ? "rebuild it with scripts/build-espeak-ng.sh" : "run npm run download-assets"}`);
   }
+  await checkSourceInputs(root);
   fs.mkdirSync(path.dirname(output), { recursive: true });
   const temporary = fs.mkdtempSync(path.join(path.dirname(output), ".offline-speech-build-"));
   fs.mkdirSync(path.join(temporary, "assets"), { recursive: true });

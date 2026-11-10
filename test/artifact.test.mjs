@@ -6,7 +6,8 @@ import zlib from "node:zlib";
 import vm from "node:vm";
 import { fileURLToPath } from "node:url";
 import { withPhonemeProgress } from "../scripts/kokoro.mjs";
-import { LIBRARY_FILES, MODEL_FILES, MODEL_ID } from "../src/assets.mjs";
+import { ESPEAK_NG_SOURCE, LIBRARY_FILES, MODEL_FILES, MODEL_ID } from "../src/assets.mjs";
+import { verifyFile } from "../scripts/files.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 test("the built artifact contains verified assets and the explicit Kokoro adapter", () => {
@@ -54,4 +55,14 @@ test("hosted HTML stays small while full licenses remain in the offline shell", 
     assert.ok(MANIFEST.shell.includes(file));
     assert.deepEqual(fs.readFileSync(path.join(ROOT, "dist/hosted", file)), fs.readFileSync(path.join(ROOT, file === "LICENSE.txt" ? "LICENSE" : file)));
   }
+});
+
+test("the standalone build writes both corresponding-source archives beside the HTML", async () => {
+  const dist = path.join(ROOT, "dist");
+  assert.ok(await verifyFile(path.join(dist, path.basename(ESPEAK_NG_SOURCE.file)), ESPEAK_NG_SOURCE));
+  const own = path.join(dist, "offline-speech-source.tar.gz");
+  assert.ok(fs.statSync(own).size > 0);
+  const html = fs.readFileSync(path.join(dist, "offline-speech.html"), "utf8");
+  assert.ok(html.includes(`<code>${path.basename(ESPEAK_NG_SOURCE.file)}</code>`));
+  assert.ok(html.includes("<code>offline-speech-source.tar.gz</code>"));
 });

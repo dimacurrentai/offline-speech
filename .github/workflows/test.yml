@@ -57,7 +57,6 @@ jobs:
         working-directory: dist
         run: |
           cp ../THIRD_PARTY_NOTICES.txt .
-          cp hosted/source/*.tar.gz .
           tar -czf offline-speech-hosted.tar.gz -C hosted .
           sha256sum offline-speech.html offline-speech-hosted.tar.gz offline-speech-source.tar.gz espeak-ng-*.tar.gz > SHA256SUMS
       - name: Retain the tested build

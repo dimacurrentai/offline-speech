@@ -8,6 +8,7 @@ import zlib from "node:zlib";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { LIBRARY_FILES, MODEL_FILES, MODEL_ID, VOICES } from "../src/assets.mjs";
 import { MODEL_INTEGRITY } from "../src/model-integrity.mjs";
+import { checkSourceInputs, writeSourceArchives } from "./source.mjs";
 import { verifyFile } from "./files.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -69,6 +70,7 @@ export async function build({ root = ROOT, output = path.join(root, "dist", "off
       throw new Error(`Library integrity check failed: ${asset.file}. ${asset.url ? "Run npm run download-libraries to repair it." : "Rebuild it with scripts/build-espeak-ng.sh."}`);
     }
   }
+  await checkSourceInputs(root);
   const app = inlineApp(root);
   let template = fs.readFileSync(path.join(root, "src", "page.html"), "utf8");
   template = replaceOnce(template, "<!--LICENSES-->", renderLicenses(root));
@@ -90,6 +92,8 @@ export async function build({ root = ROOT, output = path.join(root, "dist", "off
     }
     fs.writeFileSync(fd, suffix);
   });
+  // The standalone file is distributed with both source archives beside it.
+  await writeSourceArchives(root, path.dirname(output), { index: false });
   const mb = (fs.statSync(output).size / 2 ** 20).toFixed(1);
   console.log(`Wrote ${path.relative(root, output)} (${mb} MiB, ${assets.length} embedded files).`);
 }
