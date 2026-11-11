@@ -47,6 +47,12 @@ export function sourceFiles(root) {
 // The Git commit this build comes from, when `root` is the top of its own Git checkout (a clone or a
 // submodule), and whether its source paths are unmodified. Null for an unpacked archive, even one
 // that sits inside another repository.
+// Hover text for the page heading: the commit this build was made from.
+export function pageTitle(root) {
+  const revision = sourceRevision(root);
+  return revision ? `offline-speech ${revision.commit}` : "offline-speech";
+}
+
 export function sourceRevision(root) {
   const git = (...args) => execFileSync("git", ["-C", root, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
   try {

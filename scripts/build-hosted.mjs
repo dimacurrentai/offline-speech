@@ -6,7 +6,7 @@ import { renderLicenses } from "./licenses.mjs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { checkSourceInputs, writeSourceArchives } from "./source.mjs";
+import { checkSourceInputs, pageTitle, writeSourceArchives } from "./source.mjs";
 import { prnuiCss } from "./prnui.mjs";
 import { LIBRARY_FILES, MODEL_FILES, MODEL_ID, VOICES } from "../src/assets.mjs";
 import { MODEL_INTEGRITY } from "../src/model-integrity.mjs";
@@ -76,6 +76,7 @@ export async function buildHosted({ root = ROOT, output = path.join(root, "dist"
     files["prnui.css"] = prnuiCss(root);
     files["index.html"] = files["index.html"]
       .replace("<!--SPEECH_PROGRESS-->", () => fs.readFileSync(path.join(root, "src", "speech-progress.html"), "utf8"))
+      .replace('title="offline-speech"', () => `title="${pageTitle(root)}"`)
       .replace("<!--LICENSES-->", () => renderLicenses(root, { inlineTexts: false }));
     files["LICENSE.txt"] = fs.readFileSync(path.join(root, "LICENSE"), "utf8");
     const id = hash(JSON.stringify({ files, assets })).slice(0, 16);
