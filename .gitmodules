@@ -1,0 +1,4 @@
+[submodule "third_party/prnui"]
+	path = third_party/prnui
+	url = https://github.com/dkorolev/prnui.git
+	update = none

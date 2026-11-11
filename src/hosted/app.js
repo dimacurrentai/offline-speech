@@ -1,4 +1,4 @@
-import { renderSpeechProgress, setupTheme, createSpeechCache, renderSpeechCache, createSpeechPlayer } from "./audio.js";
+import { renderSpeechProgress, resetSpeechProgress, setupTheme, setupSpeechForm, speechInputError, setControlEnabled, createSpeechCache, renderSpeechCache, createSpeechPlayer } from "./audio.js";
 import { MANIFEST } from "./manifest.js";
 import { BASE, PREFIX, SHELL_CACHE, TOTAL_BYTES, getUsage, installAssets, deleteAssets, versioned } from "./storage.js";
 
@@ -11,34 +11,33 @@ let shellReady = false, deleting = false, worker, ready = false, speaking = fals
 const speechCache = createSpeechCache();
 const player = createSpeechPlayer($("audio"), setStatus);
 setupTheme();
+setupSpeechForm();
 const channel = typeof BroadcastChannel === "function" ? new BroadcastChannel(PREFIX) : null;
 for (const { id, label } of MANIFEST.voices) $("voice").add(new Option(label, id));
 
-function controls() {
-  $("save-offline").disabled = !shellReady || !!installation || deleting || usage.complete;
-  $("save-offline").textContent = usage.complete ? "Saved for offline use" : `Download for offline use · ${format(TOTAL_BYTES)}`;
-  $("cancel-download").hidden = !installation;
-  $("load-model").disabled = !usage.complete || !!worker || deleting || !!installation;
-  $("unload-model").disabled = !worker;
-  $("unload-saved-model").hidden = !worker;
-  $("unload-saved-model").disabled = !worker;
-  if (usage.complete && shellReady && !installation) {
-    $("offline-state").textContent = ready
-      ? "Ready offline: files saved on disk, model loaded in RAM. Unload the model to free RAM; delete offline files to free disk."
-      : worker ? "Ready offline: files saved on disk; model is loading into RAM. You can unload it to stop loading."
-      : "Ready offline: files saved on disk, model not loaded in RAM. Bookmark this page, then choose Load model when you want speech.";
+function offlineMessage() {
+  if (deleting) return "Removing saved files and unloading the model…";
+  if (!(usage.complete && shellReady && !installation)) {
+    if (!shellReady) return "Checking saved files…";
+    if (usage.savedBytes) return `${format(usage.savedBytes)} saved. Finish the download to enable offline speech.`;
+    return `Download ${format(TOTAL_BYTES)} once to enable offline speech.`;
   }
-  $("download-help").textContent = usage.complete
-    ? "Your speech files are already saved on disk. Keep them for offline reuse, or delete them to reclaim disk. Unloading RAM keeps the saved files."
-    : "Start here: press Download for offline use. This saves the model and voices to disk once; it does not load them into RAM.";
-  $("delete-offline").disabled = deleting || (!usage.dataBytes && !installation);
+  const ram = ready ? "the model is loaded in RAM" : worker ? "the model is loading into RAM" : "the model is not loaded in RAM";
+  return `Ready offline on this device. Files are saved on disk and ${ram}.`;
+}
+function controls() {
+  setControlEnabled("save-offline", shellReady && !installation && !deleting && !usage.complete);
+  setControlEnabled("cancel-download", !!installation);
+  setControlEnabled("load-model", usage.complete && !worker && !deleting && !installation);
+  setControlEnabled("unload-model", !!worker);
+  setControlEnabled("delete-offline", !deleting && (!!usage.dataBytes || !!installation));
+  $("offline-state").textContent = offlineMessage();
   const canReplay = speechCache.has($("text").value, $("voice").value);
   renderSpeechCache(speechCache);
-  $("clear-audio-cache").disabled ||= speaking;
-  $("speak").disabled = (!ready && !canReplay) || speaking || deleting;
-  $("voice").disabled = speaking;
-  $("cancel").disabled = !speaking && $("audio").paused;
-  $("cancel").textContent = speaking ? "Cancel preparation" : "Stop";
+  if (speaking) setControlEnabled("clear-audio-cache", false);
+  setControlEnabled("speak", (ready || canReplay) && !speaking && !deleting);
+  setControlEnabled("voice", !speaking);
+  setControlEnabled("cancel", speaking || !$("audio").paused);
   const step = canReplay ? 3 : !usage.complete ? 1 : !ready ? 2 : 3;
   for (const [index, id] of ["offline-files", "model", "speech"].entries()) {
     if (index + 1 === step) $(id).setAttribute("aria-current", "step");
@@ -80,10 +79,6 @@ async function refreshUsage() {
   usage = next;
   $("disk-usage").textContent = format(usage.dataBytes + usage.shellBytes);
   $("storage-detail").textContent = `${format(usage.dataBytes)} of model/library/voice files + ${format(usage.shellBytes)} of page files. These are saved file bytes; physical disk usage and browser overhead can differ.`;
-  $("offline-state").textContent = usage.complete && shellReady && !installation
-    ? "Ready offline on this device. Bookmark this page; you can reopen it and load the model without internet."
-    : usage.savedBytes ? `${format(usage.savedBytes)} saved. Finish the download to enable offline speech.`
-    : `Download ${format(TOTAL_BYTES)} once to enable offline speech.`;
   controls();
   if (navigator.storage?.estimate) {
     const estimate = await navigator.storage.estimate();
@@ -115,7 +110,7 @@ async function loadModel() {
   worker.onmessage = ({ data }) => {
     if (worker !== current) return;
     if (data.type === "ready") { ready = true; setStatus("Ready. Click Speak, or press Ctrl/Cmd+Enter."); void measureRam(); }
-    else if (data.type === "progress") { renderSpeechProgress(data); setStatus($("speech-stage").textContent); }
+    else if (data.type === "progress") setStatus(renderSpeechProgress(data));
     else if (data.type === "cancelled") { speaking = false; setStatus("Cancelled."); }
     else if (data.type === "error") {
       if (!ready) { unload(`Error: ${data.message}`); void refreshUsage(); }
@@ -126,7 +121,7 @@ async function loadModel() {
       wavUrl = speechCache.put(data.text, data.voice, data.wav);
       $("audio").src = wavUrl;
       $("download").href = wavUrl;
-      $("download").setAttribute("aria-disabled", "false");
+      setControlEnabled("download", true);
       setStatus(`Done — ${data.duration.toFixed(1)}s of audio at ${data.sampleRate} Hz, made in ${data.elapsed.toFixed(1)}s.`);
       void player.play({ automatic: true });
     }
@@ -140,31 +135,30 @@ async function loadModel() {
 function speak() {
   if (speaking || deleting) return;
   const text = $("text").value;
-  const cachedUrl = speechCache.get(text, $("voice").value);
+  const voice = $("voice").value;
+  const cachedUrl = speechCache.get(text, voice);
   if (cachedUrl) {
-      renderSpeechCache(speechCache);
-      $("speech-preparation").hidden = true;
+    renderSpeechCache(speechCache);
     wavUrl = cachedUrl;
     $("download").href = cachedUrl;
-    $("download").setAttribute("aria-disabled", "false");
+    setControlEnabled("download", true);
     if ($("audio").src !== cachedUrl) $("audio").src = cachedUrl;
     void player.play({ restart: true });
     return;
   }
   if (!ready) return;
   player.stop();
-  if (!/[\p{L}\p{N}]/u.test(text)) return setStatus("Type something to speak.");
-  if (text.length > 20000) return setStatus("Please use at most 20,000 characters at a time.");
+  const problem = speechInputError(text);
+  if (problem) return setStatus(problem);
   speaking = true;
   controls();
   setStatus("Speaking…");
-  worker.postMessage({ type: "speak", text, voice: $("voice").value });
+  worker.postMessage({ type: "speak", text, voice });
 }
 $("save-offline").addEventListener("click", () => {
   if (installation || deleting || !shellReady || usage.complete) return;
   abortDownload = new AbortController();
   const signal = abortDownload.signal;
-  $("download-progress").hidden = false;
   $("download-progress").max = TOTAL_BYTES;
   $("download-progress").value = usage.savedBytes;
   setStatus("Downloading offline files. You can cancel and resume completed pieces.");
@@ -192,7 +186,7 @@ $("save-offline").addEventListener("click", () => {
 });
 $("cancel-download").addEventListener("click", () => abortDownload?.abort());
 $("load-model").addEventListener("click", loadModel);
-for (const id of ["unload-model", "unload-saved-model"]) $(id).addEventListener("click", () => unload());
+$("unload-model").addEventListener("click", () => unload());
 $("delete-offline").addEventListener("click", async () => {
   if (deleting) return;
   deleting = true;
@@ -202,7 +196,7 @@ $("delete-offline").addEventListener("click", async () => {
   await installation;
   try {
     await deleteAssets();
-    $("download-progress").hidden = true;
+    $("download-progress").value = 0;
     $("download-status").textContent = "";
     setStatus("Offline files deleted and model RAM unloaded. The small page shell remains; download again when online to restore speech.");
   } catch (error) { setStatus(`Could not remove offline files: ${error.message}`); }
@@ -217,8 +211,8 @@ $("clear-audio-cache").addEventListener("click", () => {
   if (speaking) return;
   player.stop(); $("audio").removeAttribute("src"); $("audio").load();
   speechCache.clear(); wavUrl = undefined;
-  $("download").removeAttribute("href"); $("download").setAttribute("aria-disabled", "true");
-  $("speech-preparation").hidden = true;
+  $("download").removeAttribute("href"); setControlEnabled("download", false);
+  resetSpeechProgress();
   controls(); setStatus("Audio cache cleared. Saved model files and model loading are unchanged.");
 });
 $("speak").addEventListener("click", speak);

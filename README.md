@@ -16,7 +16,7 @@ node third_party/offline-speech/scripts/download-assets.mjs
 node third_party/offline-speech/scripts/build-hosted.mjs
 ```
 
-When cloning a parent repository that already contains this submodule, run `git submodule update --init --recursive` before building.
+When cloning a parent repository that already contains this submodule, run `git submodule update --init --recursive` before building. The build then checks out the pinned PRN UI specimen at `third_party/prnui`. `git submodule update` skips that checkout (`update = none`) so a parent recursive update still succeeds while the pin is the light-theme commit, before it is on PRN UI `main`. The build fetches that commit itself.
 
 Copy the **contents** of `third_party/offline-speech/dist/hosted/` to your site's static directory, for example `public/tools/speech/`. Add the generated directory to the **parent repository's** `.gitignore`:
 
@@ -123,7 +123,7 @@ Successful CI runs retain builds for 30 days. A `v*` tag publishes the tested st
 - `src/hosted/app.js` handles downloads, progress, resource reporting, controls and WAV playback.
 - `scripts/build.mjs`, `src/app.js`, `src/audio.mjs` and `src/unpack.mjs` preserve the standalone HTML target.
 
-The UI adapts the PRN palette and chamfered controls from [PRN UI](https://github.com/dkorolev/prnui/tree/986d93b681cb49f28b8fcd3069e2b3a04dad1a3f) (MIT). Orange buttons mark the main actions. The hosted page explains Download → Load model → Speak and shows the current step.
+Both pages use the unmodified [PRN UI](https://github.com/dkorolev/prnui/tree/8a11eb419d3c12f699c312068f622378d3307b50) specimen (MIT). The build copies its stylesheet, and this repository's stylesheet is layout only. Orange chamfered buttons mark the main actions. The hosted page explains Download → Load model → Speak and shows the current step. Download, cancel, and unload stay in place: a disabled control is how an action waits, and button labels do not change.
 
 Both builds offer System, Light, and Dark themes, remember the choice when browser settings allow, and use Speak and Save WAV without a player bar. Speak caches the ten most recently used exact text-and-voice combinations and replays hits from the beginning without inference, including after the hosted model is unloaded. New combinations generate new audio. Replay history is limited to **10 clips and 64 MiB of WAV data**; least recently used clips are evicted until both limits hold. A single WAV larger than 64 MiB stays available as the current playback/save result outside history, and is released when another clip is selected or created, or the cache is cleared. Its size is shown separately. The page shows cached WAV bytes and offers Clear audio cache to release them. This cache lives only in tab memory, uses no persistent disk storage, and clears on tab close or reload.
 
@@ -133,7 +133,7 @@ Preparation shows sentence breaks, real phoneme-generation stages through an exp
 
 | Component | Version / revision | License |
 | --- | --- | --- |
-| [PRN UI (adapted palette and button geometry)](https://github.com/dkorolev/prnui/tree/986d93b681cb49f28b8fcd3069e2b3a04dad1a3f) | 986d93b681cb49f28b8fcd3069e2b3a04dad1a3f | **MIT** |
+| [PRN UI](https://github.com/dkorolev/prnui/tree/8a11eb419d3c12f699c312068f622378d3307b50) | 8a11eb419d3c12f699c312068f622378d3307b50 | **MIT** |
 | [Kokoro-82M model and six voices](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/tree/1939ad2a8e416c0acfeecc08a694d14ef25f2231) | 1939ad2a8e416c0acfeecc08a694d14ef25f2231 | **Apache-2.0** |
 | [kokoro-js](https://github.com/hexgrad/kokoro/tree/664c76a704021239ba59c84dcbaa4d3dece01fe9) | 1.2.1 | **Apache-2.0** |
 | [@huggingface/transformers](https://github.com/huggingface/transformers.js/tree/2ec882e739e4cb461f8d440d4d7394cbf5372429) | 3.8.1 | **Apache-2.0** |

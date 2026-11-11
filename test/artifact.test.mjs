@@ -30,7 +30,7 @@ test("the built artifact contains verified assets and the explicit Kokoro adapte
   const app = /<script>\s*([\s\S]+?)<\/script>\s*<\/body>/.exec(html)?.[1];
   assert.ok(app, "missing application script");
   assert.doesNotThrow(() => new vm.Script(app));
-  for (const marker of ["const MODEL_ID = __MODEL_ID__;", "const VOICES = __VOICES__;", "/*AUDIO_HELPERS*/", "/*UNPACK_HELPERS*/", "/*APP*/", "<!--LICENSES-->"]) {
+  for (const marker of ["const MODEL_ID = __MODEL_ID__;", "const VOICES = __VOICES__;", "/*AUDIO_HELPERS*/", "/*UNPACK_HELPERS*/", "/*APP*/", "<!--LICENSES-->", "/*PRNUI*/", "/*LAYOUT*/", "<!--SPEECH_PROGRESS-->"]) {
     assert.ok(!html.includes(marker), `unreplaced marker ${marker}`);
   }
   const escape = (text) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -51,6 +51,8 @@ test("both distributions carry the shared license disclosure and complete offlin
 test("hosted HTML stays small while full licenses remain in the offline shell", async () => {
   const { MANIFEST } = await import("../dist/hosted/manifest.js");
   assert.ok(fs.statSync(path.join(ROOT, "dist/hosted/index.html")).size < 64 * 1024);
+  assert.ok(MANIFEST.shell.includes("prnui.css"));
+  assert.match(fs.readFileSync(path.join(ROOT, "dist/hosted/prnui.css"), "utf8"), /html\[data-theme="light"\]/);
   for (const file of ["LICENSE.txt", "THIRD_PARTY_NOTICES.txt"]) {
     assert.ok(MANIFEST.shell.includes(file));
     assert.deepEqual(fs.readFileSync(path.join(ROOT, "dist/hosted", file)), fs.readFileSync(path.join(ROOT, file === "LICENSE.txt" ? "LICENSE" : file)));

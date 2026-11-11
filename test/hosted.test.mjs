@@ -70,8 +70,8 @@ test("hosted output carries its corresponding source outside the offline payload
   for (const asset of SOURCE_ARCHIVES) assert.ok(await verifyFile(path.join(dir, path.basename(asset.file)), asset));
   const listed = execFileSync("tar", ["-tzf", path.join(dir, "offline-speech-source.tar.gz")], { encoding: "utf8" }).split("\n");
   for (const file of ["LICENSE", "src/library-sources.mjs", "scripts/build-espeak-ng.sh", "src/phonemizer-wrapper.js", "third_party/espeak-ng/phonemizer.js",
-    "third_party/espeak-ng/patches/0001-compat-wctype-declare-before-renaming.patch"]) assert.ok(listed.includes(file), file);
-  assert.ok(!listed.some((file) => /^(\.git|node_modules|models|dist|vendor)\//.test(file)));
+    "third_party/espeak-ng/patches/0001-compat-wctype-declare-before-renaming.patch", "third_party/prnui/prnui.html", "third_party/prnui/LICENSE"]) assert.ok(listed.includes(file), file);
+  assert.ok(!listed.some((file) => /^(\.git|node_modules|models|dist|vendor)\//.test(file) || file.includes("/.git")));
   assert.ok(!JSON.stringify(MANIFEST).includes("source/"));
   const page = fs.readFileSync(path.join(HOSTED, "index.html"), "utf8");
   // Every source link resolves to a file, so hosts without directory listings serve them.
@@ -144,11 +144,14 @@ test("a subdirectory bookmark survives a cold offline browser and lets users rec
     await waitState(page, () => !document.querySelector("#save-offline").disabled || document.querySelector("#status").textContent.startsWith("Error"));
     assert.ok(!/^Error/.test(await status(page)), await status(page));
     assert.match(await page.$eval("#next-step", el => el.textContent), /Step 1 of 3.*Download/);
-    assert.equal(await page.$eval("#save-offline", el => getComputedStyle(el).backgroundColor), "rgb(210, 153, 34)");
+    assert.equal(await page.$eval("#save-offline", el => el.textContent), "Download for offline use");
+    assert.ok(await page.$eval("#cancel-download", el => el.disabled && el.getBoundingClientRect().height > 0));
+    assert.ok(await page.$eval("#unload-model", el => el.disabled && el.getBoundingClientRect().height > 0));
     await page.emulateMediaFeatures([{ name: "prefers-color-scheme", value: "dark" }]);
     assert.equal(await page.$eval("body", el => getComputedStyle(el).backgroundColor), "rgb(13, 17, 23)");
+    assert.equal(await page.$eval("#save-offline", el => getComputedStyle(el).backgroundColor), "rgb(210, 153, 34)");
     await page.select("#theme", "light");
-    assert.equal(await page.$eval("body", el => getComputedStyle(el).backgroundColor), "rgb(246, 247, 249)");
+    assert.equal(await page.$eval("body", el => getComputedStyle(el).backgroundColor), "rgb(246, 248, 250)");
     await page.select("#theme", "dark");
     assert.equal(await page.$eval("body", el => getComputedStyle(el).backgroundColor), "rgb(13, 17, 23)");
     const upgrade = await page.evaluate(async ({ obsolete, current }) => ({
@@ -173,7 +176,7 @@ test("a subdirectory bookmark survives a cold offline browser and lets users rec
     assert.ok(await page.$eval("#download-progress", (el) => el.value < el.max));
     const savedRequests = requests.get(completedPart);
     await page.click("#save-offline");
-    await waitState(page, () => !document.querySelector("#cancel-download").hidden);
+    await waitState(page, () => !document.querySelector("#cancel-download").disabled);
     await page.click("#cancel-download");
     await waitState(page, () => document.querySelector("#status").textContent.startsWith("Download cancelled") && !document.querySelector("#save-offline").disabled);
     await page.click("#save-offline");
@@ -216,12 +219,13 @@ test("a subdirectory bookmark survives a cold offline browser and lets users rec
     await page.evaluate(() => { window.playbackObserver.disconnect(); HTMLMediaElement.prototype.play = () => Promise.resolve(); });
     const diskBefore = await page.$eval("#disk-usage", (el) => el.textContent);
     const stopped = new Promise((resolve) => page.once("workerdestroyed", resolve));
-    assert.equal(await page.$eval("#unload-saved-model", el => el.hidden), false);
+    assert.equal(await page.$eval("#unload-model", el => el.disabled), false);
+    assert.equal(await page.$eval("#save-offline", el => el.textContent), "Download for offline use");
     assert.match(await page.$eval("#offline-state", el => el.textContent), /model loaded in RAM/);
-    await page.click("#unload-saved-model");
+    await page.click("#unload-model");
     await stopped;
     assert.equal(await page.$eval("#ram-usage", (el) => el.textContent), "Model unloaded");
-    assert.equal(await page.$eval("#unload-saved-model", el => el.hidden), true);
+    assert.equal(await page.$eval("#unload-model", el => el.disabled), true);
     assert.match(await page.$eval("#offline-state", el => el.textContent), /model not loaded in RAM/);
     await page.click("#speak");
     await waitState(page, () => document.querySelector("#status").textContent === "Done — playing the prepared speech.");

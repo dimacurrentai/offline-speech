@@ -9,7 +9,6 @@
 (async () => {
   const MODEL_ID = __MODEL_ID__;
   const VOICES = __VOICES__;
-  const MAX_TEXT_CHARS = 20_000;
   const GAP_SECONDS = 0.15; // Silence between chunks.
 
   const $ = (id) => document.getElementById(id);
@@ -25,6 +24,7 @@
 
   /*AUDIO_HELPERS*/
   setupTheme();
+  setupSpeechForm();
 
   let tts;
   try {
@@ -85,42 +85,37 @@
   async function speak() {
     if (busy) return;
     const text = $("text").value;
-    if (text.length > MAX_TEXT_CHARS) return setStatus("Please use at most 20,000 characters at a time.");
+    const problem = speechInputError(text);
+    if (problem) return setStatus(problem);
     const plan = planSpeech(text);
-    if (!plan.chunks.length) return setStatus("Type something to speak.");
     const voice = $("voice").value;
     const cachedUrl = speechCache.get(text, voice);
     if (cachedUrl) {
       renderSpeechCache(speechCache);
-      $("speech-preparation").hidden = true;
       wavUrl = cachedUrl;
       $("download").href = cachedUrl;
-      $("download").setAttribute("aria-disabled", "false");
+      setControlEnabled("download", true);
       if ($("audio").src !== cachedUrl) $("audio").src = cachedUrl;
       void player.play({ restart: true });
       return;
     }
     player.stop();
     busy = true;
-    $("clear-audio-cache").disabled = true;
+    setControlEnabled("clear-audio-cache", false);
     cancelled = false;
-    $("speak").disabled = true;
-    $("voice").disabled = true;
-    $("cancel").disabled = false;
-    $("cancel").textContent = "Cancel preparation";
+    setControlEnabled("speak", false);
+    setControlEnabled("voice", false);
+    setControlEnabled("cancel", true);
     const started = performance.now();
     try {
-      const result = await generateSpeechPieces(tts, plan, voice, event => {
-        renderSpeechProgress(event);
-        setStatus($("speech-stage").textContent);
-      }, () => cancelled);
+      const result = await generateSpeechPieces(tts, plan, voice, event => setStatus(renderSpeechProgress(event)), () => cancelled);
       if (!result) return setStatus("Cancelled.");
       const { pieces, sampleRate } = result;
       const wav = encodeWav(pieces, sampleRate, GAP_SECONDS);
       wavUrl = speechCache.put(text, voice, wav);
       $("audio").src = wavUrl;
       $("download").href = wavUrl;
-      $("download").setAttribute("aria-disabled", "false");
+      setControlEnabled("download", true);
       const took = ((performance.now() - started) / 1000).toFixed(1);
       const duration = (wav.size - 44) / 2 / sampleRate;
       setStatus(`Done — ${duration.toFixed(1)}s of audio at ${sampleRate} Hz, made in ${took}s.`);
@@ -132,28 +127,32 @@
     } finally {
       busy = false;
       renderSpeechCache(speechCache);
-      $("speak").disabled = false;
-      $("voice").disabled = false;
-      $("cancel").disabled = $("audio").paused;
-      $("cancel").textContent = "Stop";
+      setControlEnabled("speak", true);
+      setControlEnabled("voice", true);
+      setControlEnabled("cancel", !$("audio").paused);
     }
   }
 
   $("cancel").addEventListener("click", () => {
-    if (!busy) { player.stop(); setStatus("Playback stopped. The WAV is still available to save."); return; }
+    if (!busy) {
+      player.stop();
+      setStatus("Playback stopped. The WAV is still available to save.");
+      setControlEnabled("cancel", !$("audio").paused);
+      return;
+    }
     cancelled = true;
-    $("cancel").disabled = true;
+    setControlEnabled("cancel", false);
     setStatus("Stopping after the current chunk…");
   });
   for (const event of ["play", "pause", "ended"]) $("audio").addEventListener(event, () => {
-    if (!busy) { $("cancel").disabled = $("audio").paused; $("cancel").textContent = "Stop"; }
+    if (!busy) setControlEnabled("cancel", !$("audio").paused);
   });
   $("clear-audio-cache").addEventListener("click", () => {
     if (busy) return;
     player.stop(); $("audio").removeAttribute("src"); $("audio").load();
     speechCache.clear(); wavUrl = null; renderSpeechCache(speechCache);
-    $("download").removeAttribute("href"); $("download").setAttribute("aria-disabled", "true");
-    $("speech-preparation").hidden = true;
+    $("download").removeAttribute("href"); setControlEnabled("download", false);
+    resetSpeechProgress();
     setStatus("Audio cache cleared. The model remains loaded.");
   });
   $("speak").addEventListener("click", speak);
@@ -163,6 +162,6 @@
       if (!e.repeat) speak();
     }
   });
-  $("speak").disabled = false;
+  setControlEnabled("speak", true);
   setStatus("Ready. Click Speak, or press Ctrl/Cmd+Enter.");
 })();
