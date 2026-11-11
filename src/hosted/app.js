@@ -22,8 +22,8 @@ function offlineMessage() {
     if (usage.savedBytes) return `${format(usage.savedBytes)} saved. Finish the download to enable offline speech.`;
     return `Download ${format(TOTAL_BYTES)} once to enable offline speech.`;
   }
-  const ram = ready ? "the model is loaded in RAM" : worker ? "the model is loading into RAM" : "the model is not loaded in RAM";
-  return `Ready offline on this device. Files are saved on disk and ${ram}.`;
+  const ram = ready ? "model loaded in RAM" : worker ? "model loading into RAM" : "model not loaded in RAM";
+  return `Ready offline on this device. Files are saved on disk, ${ram}.`;
 }
 function controls() {
   setControlEnabled("save-offline", shellReady && !installation && !deleting && !usage.complete);
