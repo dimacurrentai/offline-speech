@@ -16,7 +16,18 @@ const MOUNT = "/embedded/tools/offline-speech/";
 const chrome = [process.env.CHROME_PATH, "/usr/bin/google-chrome", "/usr/bin/chromium",
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"].find((file) => file && fs.existsSync(file));
 const status = (page) => page.$eval("#status", (el) => el.textContent);
-async function waitState(page, expression, timeout = 180000) { await page.waitForFunction(expression, { timeout, polling: 50 }); }
+async function waitState(page, expression, timeout = 180000) {
+  try { await page.waitForFunction(expression, { timeout, polling: 50 }); }
+  catch (error) {
+    const state = await page.evaluate(() => ({
+      status: document.querySelector("#status")?.textContent,
+      offline: document.querySelector("#offline-state")?.textContent,
+      downloadDisabled: document.querySelector("#save-offline")?.disabled,
+      cancelDisabled: document.querySelector("#cancel-download")?.disabled,
+    }));
+    throw new Error(`${error.message}; page state: ${JSON.stringify(state)}`, { cause: error });
+  }
+}
 async function readyModel(page) {
   await page.click("#load-model");
   await waitState(page, () => !document.querySelector("#speak").disabled || document.querySelector("#status").textContent.startsWith("Error"));
@@ -92,7 +103,9 @@ test("a subdirectory bookmark survives a cold offline browser and lets users rec
   const requests = new Map();
   const failedPart = MANIFEST.assets.find((asset) => asset.key === "ort.wasm").parts[0].url;
   const completedPart = MANIFEST.assets.find((asset) => asset.key === "node-shim").parts[0].url;
-  let failOnce = true;
+  let failOnce = true, holdDownload = false, heldDownloadClosed = false;
+  let downloadStarted;
+  const pendingDownload = new Promise(resolve => { downloadStarted = resolve; });
   const server = http.createServer((req, res) => {
     const pathname = new URL(req.url, "http://localhost").pathname;
     if (!pathname.startsWith(MOUNT)) { res.writeHead(404); res.end(); return; }
@@ -100,6 +113,15 @@ test("a subdirectory bookmark survives a cold offline browser and lets users rec
     requests.set(relative, (requests.get(relative) ?? 0) + 1);
     if (relative === "cache-seed.html") { res.writeHead(200, { "Content-Type": "text/html", "Cache-Control": "no-store" }); res.end("<!doctype html><title>Cache seed</title>"); return; }
     if (relative === failedPart && failOnce) { failOnce = false; res.writeHead(503); res.end(); return; }
+    // Hold the retry open until Cancel aborts it. Download speed must not decide
+    // whether this test exercises cancellation or an already-completed download.
+    if (relative === failedPart && holdDownload) {
+      res.writeHead(200, { "Content-Type": "application/octet-stream", "Cache-Control": "no-store" });
+      res.flushHeaders();
+      res.on("close", () => { heldDownloadClosed = true; });
+      downloadStarted();
+      return;
+    }
     const file = path.resolve(HOSTED, relative);
     if (!file.startsWith(`${HOSTED}${path.sep}`) || !fs.existsSync(file)) { res.writeHead(404); res.end(); return; }
     const type = [".js", ".mjs"].includes(path.extname(file)) ? "text/javascript" : file.endsWith(".html") ? "text/html" : file.endsWith(".css") ? "text/css" : file.endsWith(".svg") ? "image/svg+xml" : "application/octet-stream";
@@ -175,10 +197,14 @@ test("a subdirectory bookmark survives a cold offline browser and lets users rec
     await waitState(page, () => document.querySelector("#status").textContent.startsWith("Download failed"));
     assert.ok(await page.$eval("#download-progress", (el) => el.value < el.max));
     const savedRequests = requests.get(completedPart);
-    await page.click("#save-offline");
-    await waitState(page, () => !document.querySelector("#cancel-download").disabled);
-    await page.click("#cancel-download");
-    await waitState(page, () => document.querySelector("#status").textContent.startsWith("Download cancelled") && !document.querySelector("#save-offline").disabled);
+    holdDownload = true;
+    await page.locator("#save-offline").click();
+    await Promise.race([pendingDownload, delay(10000).then(() => { throw new Error("Retry never reached the held download"); })]);
+    // Locators wait for a stable bounding box after status text changes layout.
+    await page.locator("#cancel-download").click();
+    await waitState(page, () => document.querySelector("#status").textContent.startsWith("Download cancelled") && !document.querySelector("#save-offline").disabled, 10000);
+    assert.equal(heldDownloadClosed, true, "Cancel must close the in-flight request");
+    holdDownload = false;
     await page.click("#save-offline");
     await waitState(page, () => document.querySelector("#offline-state").textContent.startsWith("Ready offline") && !document.querySelector("#load-model").disabled);
     assert.equal(requests.get(completedPart), savedRequests, "completed pieces must not download again");
