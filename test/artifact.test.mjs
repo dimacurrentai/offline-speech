@@ -51,7 +51,13 @@ test("both distributions carry the shared license disclosure and complete offlin
 test("hosted HTML stays small while full licenses remain in the offline shell", async () => {
   const { MANIFEST } = await import("../dist/hosted/manifest.js");
   assert.ok(fs.statSync(path.join(ROOT, "dist/hosted/index.html")).size < 64 * 1024);
-  assert.ok(MANIFEST.shell.includes("prnui.css"));
+  for (const file of ["prnui.css", "style.css", "app.js", "updates.js"]) {
+    assert.ok(MANIFEST.shell.includes(`${file}?v=${MANIFEST.id}`));
+  }
+  const html = fs.readFileSync(path.join(ROOT, "dist/hosted/index.html"), "utf8");
+  for (const file of ["prnui.css", "style.css", "app.js"]) {
+    assert.ok(html.includes(`./${file}?v=${MANIFEST.id}"`));
+  }
   assert.match(fs.readFileSync(path.join(ROOT, "dist/hosted/prnui.css"), "utf8"), /html\[data-theme="light"\]/);
   for (const file of ["LICENSE.txt", "THIRD_PARTY_NOTICES.txt"]) {
     assert.ok(MANIFEST.shell.includes(file));

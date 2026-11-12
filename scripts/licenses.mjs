@@ -29,7 +29,7 @@ export function renderLicenses(root, { inlineTexts = true } = {}) {
     const name = pkg.name || key.split("node_modules/").at(-1);
     return [`${name}@${pkg.version}`, [name, pkg.version, pkg.license || "See package license", `https://www.npmjs.com/package/${name}/v/${pkg.version}`]];
   })).values()].sort((a,b) => a[0].localeCompare(b[0]));
-  const table = rows => `<div class="license-table"><table><thead><tr><th>Component</th><th>Version / revision</th><th>License</th></tr></thead><tbody>${rows.map(([name, version, license, url]) => `<tr><td><a href="${escape(url)}">${escape(name)}</a></td><td>${escape(version)}</td><td>${escape(license)}</td></tr>`).join("")}</tbody></table></div>`;
+  const table = rows => `<div class="table-scroll license-table"><table class="table"><thead><tr><th>Component</th><th>Version / revision</th><th>License</th></tr></thead><tbody>${rows.map(([name, version, license, url]) => `<tr><td><a href="${escape(url)}">${escape(name)}</a></td><td>${escape(version)}</td><td>${escape(license)}</td></tr>`).join("")}</tbody></table></div>`;
   const notices = fs.readFileSync(path.join(root, "THIRD_PARTY_NOTICES.txt"), "utf8");
   const license = fs.readFileSync(path.join(root, "LICENSE"), "utf8");
   return `<section id="licenses" aria-labelledby="licenses-title"><h2 id="licenses-title">Licenses and dependencies</h2>

@@ -1,3 +1,4 @@
+import { watchUpdates, restoreUpdateDraft, reloadUpdate } from "./updates.js";
 import { renderSpeechProgress, resetSpeechProgress, setupTheme, setupSpeechForm, speechInputError, setControlEnabled, createSpeechCache, renderSpeechCache, createSpeechPlayer } from "./audio.js";
 import { MANIFEST } from "./manifest.js";
 import { BASE, PREFIX, SHELL_CACHE, TOTAL_BYTES, getUsage, installAssets, deleteAssets, versioned } from "./storage.js";
@@ -7,6 +8,7 @@ const format = (bytes) => bytes < 1024 ** 2 ? `${(bytes / 1024).toFixed(1)} KiB`
 const setStatus = (text) => { $("status").textContent = text; };
 let usage = { dataBytes: 0, shellBytes: 0, savedBytes: 0, complete: false };
 let refreshSequence = 0;
+let updateAvailable = false;
 let shellReady = false, deleting = false, worker, ready = false, speaking = false, installation, abortDownload, wavUrl;
 const speechCache = createSpeechCache();
 const player = createSpeechPlayer($("audio"), setStatus);
@@ -15,10 +17,13 @@ setupSpeechForm();
 const channel = typeof BroadcastChannel === "function" ? new BroadcastChannel(PREFIX) : null;
 for (const { id, label } of MANIFEST.voices) $("voice").add(new Option(label, id));
 
+restoreUpdateDraft();
+
 function offlineMessage() {
   if (deleting) return "Removing saved files and unloading the model…";
   if (!(usage.complete && shellReady && !installation)) {
     if (!shellReady) return "Checking saved files…";
+    if (updateAvailable) return "Update the page to finish downloading. Your saved files are kept.";
     if (usage.savedBytes) return `${format(usage.savedBytes)} saved. Finish the download to enable offline speech.`;
     return `Download ${format(TOTAL_BYTES)} once to enable offline speech.`;
   }
@@ -26,7 +31,10 @@ function offlineMessage() {
   return `Ready offline on this device. Files are saved on disk, ${ram}.`;
 }
 function controls() {
-  setControlEnabled("save-offline", shellReady && !installation && !deleting && !usage.complete);
+  $("app-update").hidden = !updateAvailable;
+  setControlEnabled("reload-update", !installation && !speaking && $("audio").paused && !deleting);
+
+  setControlEnabled("save-offline", shellReady && !updateAvailable && !installation && !deleting && !usage.complete);
   setControlEnabled("cancel-download", !!installation);
   setControlEnabled("load-model", usage.complete && !worker && !deleting && !installation);
   setControlEnabled("unload-model", !!worker);
@@ -40,6 +48,8 @@ function controls() {
   setControlEnabled("cancel", speaking || !$("audio").paused);
   const step = canReplay ? 3 : !usage.complete ? 1 : !ready ? 2 : 3;
   for (const [index, id] of ["offline-files", "model", "speech"].entries()) {
+    $(id).classList.toggle("card--accent-left", index + 1 === step);
+    $(id).classList.toggle("accent-orange", index + 1 === step);
     if (index + 1 === step) $(id).setAttribute("aria-current", "step");
     else $(id).removeAttribute("aria-current");
   }
@@ -47,6 +57,7 @@ function controls() {
     : installation ? "Step 1 of 3 · Downloading speech files. Progress is shown below; loading comes next."
     : !shellReady ? "Preparing offline storage. Download will become available shortly."
     : canReplay && !speaking ? "Cached speech ready · Press Speak to replay from the beginning. Load the model only for new text or a different voice."
+    : updateAvailable && !usage.complete ? "Update the page to continue. Previously downloaded files will be reused."
     : !usage.complete ? "Step 1 of 3 · Press Download for offline use. Then load the model, then press Speak."
     : !worker ? "Step 2 of 3 · Download complete. Press Load model to prepare speech in RAM."
     : !ready ? "Step 2 of 3 · Loading the model into RAM. Wait for Ready before speaking."
@@ -156,7 +167,7 @@ function speak() {
   worker.postMessage({ type: "speak", text, voice });
 }
 $("save-offline").addEventListener("click", () => {
-  if (installation || deleting || !shellReady || usage.complete) return;
+  if (updateAvailable || installation || deleting || !shellReady || usage.complete) return;
   abortDownload = new AbortController();
   const signal = abortDownload.signal;
   $("download-progress").max = TOTAL_BYTES;
@@ -172,13 +183,15 @@ $("save-offline").addEventListener("click", () => {
       }, signal);
       setStatus("Saved for offline use. Bookmark this page, then choose Load model to speak.");
     } catch (error) {
-      setStatus(signal.aborted ? "Download cancelled. Completed pieces are saved; choose Download to resume." : `Download failed: ${error.message}`);
+      const cancelled = updateAvailable ? "Update available. Completed pieces are saved; update the page to resume."
+        : "Download cancelled. Completed pieces are saved; choose Download to resume.";
+      setStatus(signal.aborted ? cancelled : `Download failed: ${error.message}`);
     } finally {
       installation = undefined;
       abortDownload = undefined;
       await refreshUsage();
       $("download-progress").value = usage.savedBytes;
-      if (!usage.complete) $("download-status").textContent = `${format(usage.savedBytes)} verified and saved of ${format(TOTAL_BYTES)}. Choose Download to resume.`;
+      if (!usage.complete) $("download-status").textContent = `${format(usage.savedBytes)} verified and saved of ${format(TOTAL_BYTES)}. ${updateAvailable ? "Update the page" : "Choose Download"} to resume.`;
       channel?.postMessage({ type: "data-changed" });
     }
   })();
@@ -227,12 +240,18 @@ $("text").addEventListener("keydown", (event) => {
   if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) { event.preventDefault(); if (!event.repeat) speak(); }
 });
 
+$("reload-update").addEventListener("click", () => {
+  if (installation || speaking || !$("audio").paused || deleting) return;
+  try { reloadUpdate(); }
+  catch { setStatus("The browser could not save your text. Copy it before refreshing this page."); }
+});
+
 try {
   if (!isSecureContext || !("serviceWorker" in navigator) || !("caches" in window)) {
     throw new Error("Offline bookmarks require HTTPS (or localhost for development) and service-worker support.");
   }
   try {
-    const registration = await navigator.serviceWorker.register(versioned("sw.js"), { type: "module", scope: BASE.pathname, updateViaCache: "none" });
+    const registration = await navigator.serviceWorker.register(new URL("sw.js", BASE), { type: "module", scope: BASE.pathname, updateViaCache: "none" });
     const candidate = registration.installing ?? registration.waiting ?? registration.active;
     if (candidate?.state !== "activated") await new Promise((resolve, reject) => {
       if (!candidate || candidate.state === "redundant") return reject(new Error("Could not install the offline page"));
@@ -246,6 +265,11 @@ try {
     if (navigator.serviceWorker.controller && await caches.has(SHELL_CACHE)) shellReady = true;
     else throw error;
   }
+  watchUpdates(() => {
+    updateAvailable = true;
+    abortDownload?.abort();
+    controls();
+  });
   await refreshUsage();
   setStatus(usage.complete ? "Offline files are saved. Choose Load model to speak." : "Download the speech files once to use this bookmark offline.");
 } catch (error) { setStatus(`Error: ${error.message}`); }

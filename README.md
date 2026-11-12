@@ -182,3 +182,30 @@ The eSpeak module and patches declare the offline-speech modifications dated 202
 ## Publication
 
 The repository is public. The license cleanup, the Puppeteer upgrade, the pinned eSpeak NG build and corresponding-source packaging are complete, and CI rebuilds the eSpeak NG module byte-for-byte on Linux. A hosted copy, such as `dima.ai/tts/`, updates only when it is rebuilt from a newer commit.
+
+### Updating an installed bookmark
+
+Updates keep saved model, voice, and runtime files, including the payload caches
+created by older releases. New builds reuse parts with matching content hashes and
+sizes; Download fetches only missing or changed parts. Old tabs keep their own
+versioned modules and cached payload until you choose to update. Files and earlier
+page shells remain in browser storage so those tabs keep working; the storage
+display includes them. Delete offline files removes all saved payload versions
+for this app, while leaving page shells and other apps' caches alone. Clearing
+this site's browser data also removes retained page shells.
+
+An open tab shows **Update available** when a new worker takes control or when the
+tab returns to the foreground online. **Update page** keeps the typed text and
+selected voice, but clears generated audio and unloads the model. It waits for
+playback to stop; an interrupted download retains completed parts. A tab opened
+before this update notice existed needs one manual reload to gain the notice.
+Already-saved files remain available during that transition.
+
+The page uses PRN UI's cards, numbered section references, accent classes,
+callouts, buttons, fields, metrics, and license tables. Application CSS owns
+layout adjustments; theme palettes and component styling stay in PRN UI.
+
+Run `node --test test/updates.test.mjs` for the small-payload Chrome regression:
+two releases, a legacy payload cache, two open tabs, reused files, retained text,
+offline reload, and explicit deletion. It creates and tears down its own HTTP
+server and browser. `npm run test:e2e` includes this test alongside real speech.
