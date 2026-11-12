@@ -4,11 +4,13 @@ import path from "node:path";
 import { MODEL_REVISION } from "../src/model-integrity.mjs";
 import { VOICES } from "../src/assets.mjs";
 import { SOURCE_ARCHIVE_NAMES, sourceDirections, sourceLocation } from "./source.mjs";
+import { prnuiSource } from "./prnui.mjs";
 const escape = value => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 // Embedded Jinja 0.5.3 matches the published Transformers.js 3.8.1 sourcemap
 // sourcesContent byte-for-byte; onnxruntime-common/version.js declares 1.21.0.
+const prnui = prnuiSource();
 export const RUNTIME_DEPENDENCIES = [
-  ["PRN UI (adapted palette and button geometry)", "986d93b681cb49f28b8fcd3069e2b3a04dad1a3f", "MIT", "https://github.com/dkorolev/prnui/tree/986d93b681cb49f28b8fcd3069e2b3a04dad1a3f"],
+  [prnui.name, prnui.revision, "MIT", `${prnui.repository}/tree/${prnui.revision}`],
   ["Kokoro-82M model and six voices", MODEL_REVISION, "Apache-2.0", `https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/tree/${MODEL_REVISION}`],
   ["kokoro-js", "1.2.1", "Apache-2.0", "https://github.com/hexgrad/kokoro/tree/664c76a704021239ba59c84dcbaa4d3dece01fe9"],
   ["@huggingface/transformers", "3.8.1", "Apache-2.0", "https://github.com/huggingface/transformers.js/tree/2ec882e739e4cb461f8d440d4d7394cbf5372429"],

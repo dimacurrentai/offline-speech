@@ -119,6 +119,31 @@ test("source archives list only tracked source files, never local untracked ones
   assert.deepEqual(sourceFiles(root), ["README.md", "src/app.js"]);
 });
 
+test("the pages consume the pinned PRN UI specimen instead of a copied palette", async () => {
+  const { prnuiCss, prnuiSource } = await import("../scripts/prnui.mjs");
+  const { sourceFiles } = await import("../scripts/source.mjs");
+  const root = path.resolve(import.meta.dirname || path.dirname(new URL(import.meta.url).pathname), "..");
+  const css = prnuiCss(root);
+  assert.match(css, /--bg:\s+#0d1117/);
+  assert.match(css, /html\[data-theme="light"\][\s\S]*--bg:\s+#f6f8fa/);
+  const { revision } = prnuiSource();
+  for (const file of ["README.md", "THIRD_PARTY_NOTICES.txt", "src/library-sources.mjs"]) {
+    const text = fs.readFileSync(path.join(root, file), "utf8");
+    assert.ok(text.includes(revision), file);
+    assert.ok(!text.includes("986d93b"), file);
+    assert.ok(!/adapted palette/i.test(text), file);
+  }
+  for (const file of ["src/hosted/style.css", "src/hosted/index.html", "src/page.html", "src/hosted/app.js", "src/app.js", "src/hosted/tts-worker.js"]) {
+    const text = fs.readFileSync(path.join(root, file), "utf8");
+    assert.ok(!text.includes("#f6f7f9"), file);
+    assert.ok(!/\b20000\b/.test(text), file);
+  }
+  const files = sourceFiles(root);
+  assert.ok(files.includes("third_party/prnui/prnui.html"));
+  assert.ok(files.includes("third_party/prnui/LICENSE"));
+  assert.ok(!files.some((file) => file === "third_party/prnui" || file.includes("/.git") || file.includes("android")));
+});
+
 test("builds link their exact commit only from an unmodified checkout of their own", async (t) => {
   const { REPOSITORY, sourceLocation } = await import("../scripts/source.mjs");
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "offline-speech-revision-test-"));

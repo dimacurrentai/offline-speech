@@ -1,42 +1,51 @@
-/* PRN UI palette and chamfer geometry, adapted from dkorolev/prnui (MIT).
-   Source revision and license are included in the dependency disclosure. */
-:root { color-scheme:light; --bg:#f6f7f9; --fg:#18202b; --muted:#4e5968; --line:#c2c9d3; --card:#fff; --accent:#d29922; --link:#875800; }
-@media(prefers-color-scheme:dark) { :root:not([data-theme="light"]) { color-scheme:dark; --bg:#0d1117; --fg:#e6edf3; --muted:#a2abb7; --line:#2a3140; --card:#161b22; --accent:#d29922; --link:#e9b84b; } }
-:root[data-theme="dark"] { color-scheme:dark; --bg:#0d1117; --fg:#e6edf3; --muted:#a2abb7; --line:#2a3140; --card:#161b22; --accent:#d29922; --link:#e9b84b; }
-    * { box-sizing:border-box; }
-    body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui,sans-serif; }
-    main { max-width:760px; margin:auto; padding:32px 16px; }
-    h1 { margin:0; font-size:26px; } h2 { margin:0 0 12px; font-size:18px; }
-    p { margin:8px 0 16px; } .muted,small { color:var(--muted); }
-    section { margin:20px 0; padding:20px; border:1px solid var(--line); border-radius:0; background:var(--card); }
-    .metrics { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
-    .metrics dt { font-size:14px; color:var(--muted); } .metrics dd { margin:4px 0 0; font-size:22px; font-weight:600; }
-    .row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:12px 0; }
-    button,select,a.button { font:inherit; padding:9px 13px; color:inherit; background:var(--card); border:1px solid var(--line); border-radius:2px; text-decoration:none; }
-    .primary,a.button.primary { background:var(--accent); border-color:var(--accent); color:#0d1117; font-weight:700; }
-    .primary:disabled,a.primary[aria-disabled="true"] { background:var(--line); border-color:var(--line); color:var(--muted); opacity:1; }
-    button:disabled,[aria-disabled="true"] { opacity:.5; } a[aria-disabled="true"] { pointer-events:none; }
-    button:not(:disabled),summary { cursor:pointer; }
-    textarea { width:100%; min-height:150px; margin-top:6px; padding:12px; font:inherit; color:inherit; background:var(--bg); border:1px solid var(--line); border-radius:2px; resize:vertical; }
-    audio,progress { width:100%; } progress { height:18px; accent-color:var(--accent); }
-    #status,#download-status { min-height:1.5em; } small { display:block; }
-    details { margin-top:16px; font-size:14px; } [hidden] { display:none !important; }
-    @media(max-width:480px) { .metrics { grid-template-columns:1fr; gap:12px; } section { padding:16px; } }
+/* Layout only. Color, type, and chamfer components come from the pinned PRN UI specimen. */
 
-.license-table { overflow-x:auto; } th,td { text-align:left; padding:6px; vertical-align:top; overflow-wrap:anywhere; } pre { white-space:pre-wrap; overflow-wrap:anywhere; }
+body { max-width: none; padding: 0; }
+main { max-width: 760px; margin: 0 auto; padding: 32px 16px; }
+h2 { margin: 0 0 12px; font-size: 1.15rem; }
+p { margin: 8px 0 16px; }
+a { color: var(--cyan); }
+a.btn { color: inherit; text-decoration: none; }
+a.btn[aria-disabled="true"] { pointer-events: none; }
+a:focus-visible, summary:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+small, .muted { color: var(--text-muted); }
+small { display: block; margin: 8px 0; }
+.subtitle { margin-bottom: 16px; }
 
-h1,h2,.metrics dd { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
-a { color:var(--link); }
-button,a.button { --cut:5px; clip-path:polygon(var(--cut) 0,calc(100% - var(--cut)) 0,100% var(--cut),100% calc(100% - var(--cut)),calc(100% - var(--cut)) 100%,var(--cut) 100%,0 calc(100% - var(--cut)),0 var(--cut)); min-height:44px; }
-button:focus-visible,a.button:focus-visible { outline:none; box-shadow:inset 0 0 0 3px var(--fg); }
-a:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible { outline:2px solid var(--link); outline-offset:3px; }
-button:not(:disabled):hover,a.button:not([aria-disabled="true"]):hover { filter:brightness(1.15); }
-.steps { display:flex; flex-wrap:wrap; gap:8px 24px; padding:0; list-style:none; font-family:ui-monospace,monospace; }
-.steps a { display:inline-block; padding:8px 0; }
-.callout { padding:16px; border-left:3px solid var(--accent); background:var(--card); }
-section[aria-current="step"] { border-left:3px solid var(--accent); }
-@media(prefers-reduced-motion:no-preference) { html { scroll-behavior:smooth; } }
+.card::after { content: none; }
+.card.card--accent-left { --accent: var(--border); }
+.card.card--accent-left.accent-orange,
+.card.card--accent-left[aria-current="step"] { --accent: var(--orange); }
+.callout { margin: 16px 0; }
 
-.sentence-progress { max-height:240px; overflow:auto; padding-left:28px; } .sentence-progress li { margin:8px 0; } .sentence-progress small { display:block; } .sentence-progress [aria-current="step"] { color:var(--accent); }
+.steps { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 0 0 16px; padding: 0; list-style: none; font-family: var(--font-mono); }
+.steps a { display: inline-block; padding: 8px 0; }
+.theme-field { max-width: 280px; margin: 12px 0 16px; }
+.btn-row .field { flex: 1 1 12rem; }
+.text-field .field-control { align-items: stretch; }
+textarea.field-input { min-height: 150px; resize: vertical; }
+.metric-grid.resources { grid-template-columns: 1fr 1fr; margin: 12px 0 16px; }
 
-#source { overflow-wrap:anywhere; }
+progress { display: block; width: 100%; height: 18px; margin: 12px 0; accent-color: var(--orange); }
+#status, #download-status, #offline-state, #next-step, #speech-stage { min-height: 1.5em; }
+#audio-cache-info { min-height: 3em; }
+details { margin-top: 16px; }
+summary { cursor: pointer; }
+[hidden] { display: none !important; }
+
+.pipeline, .sentence-progress { margin: 8px 0; padding-left: 1.4em; }
+.sentence-progress { max-height: 240px; overflow: auto; }
+.sentence-progress li { margin: 8px 0; }
+.sentence-progress small { display: block; }
+.sentence-progress [aria-current="step"] { color: var(--orange); }
+
+.license-table { overflow-x: auto; }
+.license-table table { width: 100%; border-collapse: collapse; }
+.license-table th, .license-table td { border-bottom: 1px solid var(--border); padding: 6px; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+#source { overflow-wrap: anywhere; }
+
+@media (max-width: 520px) {
+  main { padding: 24px 14px; }
+  .metric-grid.resources { grid-template-columns: 1fr; }
+}

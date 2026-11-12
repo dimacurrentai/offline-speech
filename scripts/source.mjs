@@ -8,6 +8,7 @@ import { LIBRARY_SOURCE_ARCHIVES, PINNED_LIBRARY_SOURCES } from "../src/library-
 import { MODEL_ID } from "../src/assets.mjs";
 import { MODEL_REVISION } from "../src/model-integrity.mjs";
 import { verifyFile } from "./files.mjs";
+import { PRNUI_SOURCE_FILES } from "./prnui.mjs";
 
 export const OWN_SOURCE_ARCHIVE = "offline-speech-source.tar.gz";
 export const REPOSITORY = "https://github.com/dimacurrentai/offline-speech";
@@ -16,7 +17,7 @@ export const SOURCE_ARCHIVES = [ESPEAK_NG_SOURCE, ...LIBRARY_SOURCE_ARCHIVES];
 export const SOURCE_ARCHIVE_NAMES = [OWN_SOURCE_ARCHIVE, ...SOURCE_ARCHIVES.map(asset => path.basename(asset.file))];
 
 // The repository's source paths. Only these are archived, so local files such as .env never are.
-export const SOURCE_PATHS = [".github", ".gitignore", "LICENSE", "README.md", "THIRD_PARTY_NOTICES.txt",
+export const SOURCE_PATHS = [".github", ".gitignore", ".gitmodules", "LICENSE", "README.md", "THIRD_PARTY_NOTICES.txt",
   "package-lock.json", "package.json", "scripts", "src", "test", "third_party"];
 
 function walk(root, relative) {
@@ -36,12 +37,22 @@ export function sourceFiles(root) {
     // An unpacked source archive, which has no Git metadata: the same source paths, walked.
     return SOURCE_PATHS.flatMap((entry) => walk(root, entry)).sort();
   }
-  return tracked.filter((file) => fs.existsSync(path.join(root, file))).sort();
+  const files = tracked.filter((file) => file !== "third_party/prnui" && fs.existsSync(path.join(root, file)));
+  for (const file of PRNUI_SOURCE_FILES) {
+    if (fs.existsSync(path.join(root, file)) && !files.includes(file)) files.push(file);
+  }
+  return files.sort();
 }
 
 // The Git commit this build comes from, when `root` is the top of its own Git checkout (a clone or a
 // submodule), and whether its source paths are unmodified. Null for an unpacked archive, even one
 // that sits inside another repository.
+// Hover text for the page heading: the commit this build was made from.
+export function pageTitle(root) {
+  const revision = sourceRevision(root);
+  return revision ? `offline-speech ${revision.commit}` : "offline-speech";
+}
+
 export function sourceRevision(root) {
   const git = (...args) => execFileSync("git", ["-C", root, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
   try {
@@ -96,7 +107,7 @@ function sourceIndex(root) {
   const location = sourceLocation(root);
   const bundled = SOURCE_ARCHIVE_NAMES.map(name => `<li><a href="./${escape(name)}">${escape(name)}</a></li>`).join("\n");
   const upstream = PINNED_LIBRARY_SOURCES.map(item => `<li><a href="${escape(item.repository)}/tree/${item.revision}">${escape(item.name)} ${escape(item.version)} — ${item.revision}</a><p>${escape(item.instructions)}</p><a href="${escape(item.repository)}/archive/${item.revision}.tar.gz">Pinned upstream source archive</a></li>`).join("\n");
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>offline-speech source</title><link rel="stylesheet" href="../style.css"></head><body><main id="source"><h1>Corresponding source for this offline-speech build</h1><p>${escape(location.prefix)}<a href="${escape(location.url)}">${escape(location.url)}</a>.</p><h2>Included source archives</h2><ul>${bundled}</ul><h2>Pinned library sources and build directions</h2><ul>${upstream}</ul><h2>Model and voices</h2><p><a href="https://huggingface.co/${MODEL_ID}/tree/${MODEL_REVISION}">${MODEL_ID}, revision ${MODEL_REVISION}</a></p><p><a href="./README.txt">README.txt</a> includes archive SHA-256 hashes and rebuild directions.</p></main></body></html>\n`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>offline-speech source</title><link rel="stylesheet" href="../prnui.css"><link rel="stylesheet" href="../style.css"></head><body><main id="source"><h1>Corresponding source for this offline-speech build</h1><p>${escape(location.prefix)}<a href="${escape(location.url)}">${escape(location.url)}</a>.</p><h2>Included source archives</h2><ul>${bundled}</ul><h2>Pinned library sources and build directions</h2><ul>${upstream}</ul><h2>Model and voices</h2><p><a href="https://huggingface.co/${MODEL_ID}/tree/${MODEL_REVISION}">${MODEL_ID}, revision ${MODEL_REVISION}</a></p><p><a href="./README.txt">README.txt</a> includes archive SHA-256 hashes and rebuild directions.</p></main></body></html>\n`;
 }
 
 // Writes the integration and bundled library source archives into `output`. With `index`, also writes README.txt and an index.html,

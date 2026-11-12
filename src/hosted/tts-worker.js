@@ -1,6 +1,6 @@
 import { MANIFEST } from "./manifest.js";
 import { urlFor, readAsset, resolveAsset } from "./storage.js";
-import { planSpeech, generateSpeechPieces, encodeWav } from "./audio.js";
+import { planSpeech, generateSpeechPieces, encodeWav, MAX_TEXT_CHARS } from "./audio.js";
 
 let tts, busy = false, cancelled = false;
 const realFetch = self.fetch.bind(self);
@@ -30,7 +30,7 @@ self.addEventListener("message", async ({ data }) => {
       self.postMessage({ type: "ready" });
     } else if (data.type === "speak") {
       if (!tts) throw new Error("Load the model first");
-      if (data.text.length > 20000) throw new Error("Please use at most 20,000 characters");
+      if (data.text.length > MAX_TEXT_CHARS) throw new Error("Please use at most 20,000 characters at a time.");
       const started = performance.now();
       const result = await generateSpeechPieces(tts, planSpeech(data.text), data.voice,
         progress => self.postMessage({ type: "progress", ...progress }), () => cancelled);

@@ -1,4 +1,28 @@
 // Shared speech preparation, progress, and WAV helpers, also inlined by the build.
+export const MAX_TEXT_CHARS = 20_000;
+
+export function speechInputError(text) {
+  if (text.length > MAX_TEXT_CHARS) return "Please use at most 20,000 characters at a time.";
+  if (!/[\p{L}\p{N}]/u.test(text)) return "Type something to speak.";
+  return "";
+}
+
+export function setupSpeechForm() {
+  const text = document.getElementById("text");
+  text.maxLength = MAX_TEXT_CHARS;
+  const label = document.querySelector('label[for="text"]');
+  if (label) label.textContent = `Text to speak (up to ${MAX_TEXT_CHARS.toLocaleString("en-US")} characters)`;
+}
+
+// Disabled controls stay in place. The disabled look is PRN UI's `.btn--disabled` class.
+export function setControlEnabled(id, enabled) {
+  const el = document.getElementById(id);
+  const disabled = !enabled;
+  if ("disabled" in el) el.disabled = disabled;
+  if (el.classList.contains("btn")) el.classList.toggle("btn--disabled", disabled);
+  if (el.tagName === "A") el.setAttribute("aria-disabled", disabled ? "true" : "false");
+}
+
 export function splitIntoChunks(text, maxLength = 300) {
   if (!Number.isInteger(maxLength) || maxLength < 2) throw new Error("Invalid chunk length");
   if (!/[\p{L}\p{N}]/u.test(text)) return [];
@@ -145,7 +169,6 @@ export async function generateSpeechPieces(tts, plan, voice, report, isCancelled
 // Shared by the hosted page and the standalone HTML; every value is text, not HTML.
 export function renderSpeechProgress(event) {
   const $ = id => document.getElementById(id);
-  $("speech-preparation").hidden = false;
   const { stage, totalWords, completedWords, sentence, totalSentences, phonemized, totalChunks } = event;
   if (stage === "split") {
     $("sentence-progress").replaceChildren(...event.sentences.map(item => {
@@ -165,13 +188,24 @@ export function renderSpeechProgress(event) {
     $("phoneme-state").textContent = `Phoneme generation · ${phonemized} / ${totalChunks} chunk${totalChunks === 1 ? "" : "s"} prepared`;
   }
   const labels = { split: "Sentence breaks ready", phonemes: `Generating phonemes · sentence ${sentence + 1} of ${totalSentences}`, generating: `Generating speech · sentence ${sentence + 1} of ${totalSentences}`, completed: `Generated sentence chunk ${event.current} of ${totalChunks}`, encoding: "Preparing WAV file…", cancelled: "Preparation stopped", error: "Preparation failed", done: "WAV ready · speech generation complete" };
-  $("speech-stage").textContent = labels[stage];
+  const label = labels[stage] ?? "";
+  $("speech-stage").textContent = label;
   if (event.phonemes !== undefined) $("phoneme-text").textContent = event.phonemes;
   const row = $("sentence-progress").children[sentence];
   if (row) {
     row.setAttribute("aria-current", stage === "completed" ? "false" : "step");
     row.lastChild.textContent = stage === "completed" ? `${event.sentenceWords} / ${row.dataset.words} words complete` : stage === "phonemes" ? "Generating phonemes…" : "Generating speech…";
   }
+  return label;
+}
+
+export function resetSpeechProgress() {
+  const $ = id => document.getElementById(id);
+  $("speech-stage").textContent = "Waiting to speak.";
+  for (const id of ["split-state", "phoneme-state", "generation-state", "phoneme-text"]) $(id).textContent = "";
+  $("sentence-progress").replaceChildren();
+  $("speech-progress").max = 1;
+  $("speech-progress").value = 0;
 }
 
 export function setupTheme() {
@@ -182,6 +216,8 @@ export function setupTheme() {
   } catch { /* Theme selection still works when browser storage is unavailable. */ }
   const apply = () => {
     document.documentElement.dataset.theme = select.value;
+    const theme = document.querySelector('meta[name="theme-color"]');
+    if (theme) theme.setAttribute("content", getComputedStyle(document.documentElement).getPropertyValue("--bg").trim());
     try { localStorage.setItem("offline-speech:theme", select.value); } catch { /* Optional preference only. */ }
   };
   select.addEventListener("change", apply);
@@ -231,7 +267,7 @@ export function renderSpeechCache(cache) {
   const { count, bytes, entryLimit, byteLimit, currentUncachedBytes } = cache.stats();
   const extra = currentUncachedBytes ? ` Current WAV: ${(currentUncachedBytes / 1024 ** 2).toFixed(2)} MiB, outside the history budget; kept only until another clip is selected or created, or the cache is cleared.` : "";
   document.getElementById("audio-cache-info").textContent = `Recent audio: ${count} / ${entryLimit} text-and-voice combinations · ${(bytes / 1024 ** 2).toFixed(2)} / ${(byteLimit / 1024 ** 2).toFixed(0)} MiB of cached WAVs in this tab’s RAM.${extra} No disk storage; closing this tab clears it. Audio decoding can use additional RAM.`;
-  document.getElementById("clear-audio-cache").disabled = !count && !currentUncachedBytes;
+  setControlEnabled("clear-audio-cache", count || currentUncachedBytes);
 }
 
 

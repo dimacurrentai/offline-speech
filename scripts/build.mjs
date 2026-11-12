@@ -8,7 +8,8 @@ import zlib from "node:zlib";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { LIBRARY_FILES, MODEL_FILES, MODEL_ID, VOICES } from "../src/assets.mjs";
 import { MODEL_INTEGRITY } from "../src/model-integrity.mjs";
-import { checkSourceInputs, writeSourceArchives } from "./source.mjs";
+import { checkSourceInputs, pageTitle, writeSourceArchives } from "./source.mjs";
+import { prnuiCss } from "./prnui.mjs";
 import { verifyFile } from "./files.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -73,6 +74,10 @@ export async function build({ root = ROOT, output = path.join(root, "dist", "off
   await checkSourceInputs(root);
   const app = inlineApp(root);
   let template = fs.readFileSync(path.join(root, "src", "page.html"), "utf8");
+  template = replaceOnce(template, 'title="offline-speech"', `title="${pageTitle(root)}"`);
+  template = replaceOnce(template, "/*PRNUI*/", prnuiCss(root));
+  template = replaceOnce(template, "/*LAYOUT*/", fs.readFileSync(path.join(root, "src", "hosted", "style.css"), "utf8"));
+  template = replaceOnce(template, "<!--SPEECH_PROGRESS-->", fs.readFileSync(path.join(root, "src", "speech-progress.html"), "utf8"));
   template = replaceOnce(template, "<!--LICENSES-->", renderLicenses(root));
   // Validate all markers before touching the destination.
   replaceOnce(template, "<!--ASSETS-->", "");

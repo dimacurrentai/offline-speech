@@ -6,7 +6,8 @@ import { renderLicenses } from "./licenses.mjs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { checkSourceInputs, writeSourceArchives } from "./source.mjs";
+import { checkSourceInputs, pageTitle, writeSourceArchives } from "./source.mjs";
+import { prnuiCss } from "./prnui.mjs";
 import { LIBRARY_FILES, MODEL_FILES, MODEL_ID, VOICES } from "../src/assets.mjs";
 import { MODEL_INTEGRITY } from "../src/model-integrity.mjs";
 import { verifyFile } from "./files.mjs";
@@ -14,7 +15,7 @@ import { verifyFile } from "./files.mjs";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const CHUNK_BYTES = 8 * 1024 * 1024;
-const SHELL = ["index.html", "app.js", "storage.js", "tts-worker.js", "audio.js", "manifest.js", "style.css", "favicon.svg", "LICENSE.txt", "THIRD_PARTY_NOTICES.txt"];
+const SHELL = ["index.html", "app.js", "storage.js", "tts-worker.js", "audio.js", "manifest.js", "prnui.css", "style.css", "favicon.svg", "LICENSE.txt", "THIRD_PARTY_NOTICES.txt"];
 
 export async function buildHosted({ root = ROOT, output = path.join(root, "dist", "hosted") } = {}) {
   output = path.resolve(output);
@@ -72,7 +73,11 @@ export async function buildHosted({ root = ROOT, output = path.join(root, "dist"
     const files = Object.fromEntries(sourceNames.map((name) => [name, fs.readFileSync(path.join(root, "src", "hosted", name), "utf8")]));
     files["audio.js"] = fs.readFileSync(path.join(root, "src", "audio.mjs"), "utf8");
     files["THIRD_PARTY_NOTICES.txt"] = fs.readFileSync(path.join(root, "THIRD_PARTY_NOTICES.txt"), "utf8");
-    files["index.html"] = files["index.html"].replace("<!--LICENSES-->", () => renderLicenses(root, { inlineTexts: false }));
+    files["prnui.css"] = prnuiCss(root);
+    files["index.html"] = files["index.html"]
+      .replace("<!--SPEECH_PROGRESS-->", () => fs.readFileSync(path.join(root, "src", "speech-progress.html"), "utf8"))
+      .replace('title="offline-speech"', () => `title="${pageTitle(root)}"`)
+      .replace("<!--LICENSES-->", () => renderLicenses(root, { inlineTexts: false }));
     files["LICENSE.txt"] = fs.readFileSync(path.join(root, "LICENSE"), "utf8");
     const id = hash(JSON.stringify({ files, assets })).slice(0, 16);
     const shell = SHELL.map((name) => name.endsWith(".js") ? `${name}?v=${id}` : name);

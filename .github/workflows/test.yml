@@ -10,6 +10,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Check out the pinned PRN UI specimen
+        run: node scripts/prnui.mjs
       - run: npm run test:unit
   espeak-ng-reproducible-build:
     runs-on: ubuntu-22.04
@@ -29,6 +31,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Check out the pinned PRN UI specimen
+        run: node scripts/prnui.mjs
       - run: npm ci
       - run: npm run test:unit
       - uses: actions/cache@v4

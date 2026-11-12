@@ -88,10 +88,10 @@ export const PINNED_LIBRARY_SOURCES = [
     "instructions": "src/ and system/lib/ contain the runtime sources, including libc/musl, libcxx, libcxxabi, and compiler-rt. scripts/build-espeak-ng.sh uses emsdk 7.0.0; the compiler is a general-purpose build tool. Runtime license texts are included in THIRD_PARTY_NOTICES.txt."
   },
   {
-    "name": "PRN UI, adapted CSS",
-    "version": "pinned source",
-    "revision": "986d93b681cb49f28b8fcd3069e2b3a04dad1a3f",
+    "name": "PRN UI",
+    "version": "pinned specimen",
+    "revision": "8a11eb419d3c12f699c312068f622378d3307b50",
     "repository": "https://github.com/dkorolev/prnui",
-    "instructions": "prnui.html contains the original palette and chamfer geometry. The adapted styles are included in offline-speech-source.tar.gz."
+    "instructions": "third_party/prnui is the unmodified specimen. The build copies its stylesheet into both pages and does not keep a second palette. This commit adds the light theme and is reachable from the light-theme branch until that change is on main. offline-speech-source.tar.gz includes prnui.html and LICENSE from that checkout."
   }
 ];
