@@ -15,7 +15,7 @@ import { verifyFile } from "./files.mjs";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const CHUNK_BYTES = 8 * 1024 * 1024;
-const SHELL = ["index.html", "app.js", "storage.js", "tts-worker.js", "audio.js", "manifest.js", "prnui.css", "style.css", "favicon.svg", "LICENSE.txt", "THIRD_PARTY_NOTICES.txt"];
+const SHELL = ["index.html", "app.js", "updates.js", "storage.js", "tts-worker.js", "audio.js", "manifest.js", "prnui.css", "style.css", "favicon.svg", "LICENSE.txt", "THIRD_PARTY_NOTICES.txt"];
 
 export async function buildHosted({ root = ROOT, output = path.join(root, "dist", "hosted") } = {}) {
   output = path.resolve(output);
@@ -69,7 +69,7 @@ export async function buildHosted({ root = ROOT, output = path.join(root, "dist"
     if (!kokoro.includes(voiceCache)) throw new Error("Kokoro voice cache adapter changed");
     kokoro = kokoro.replace(voiceCache, 'Promise.resolve({match:async()=>undefined,put:async()=>{}})');
     writeAsset("kokoro-js", Buffer.from("// Modified for offline-speech: local ESM imports and app-managed voice caching.\n" + kokoro), "text/javascript", "kokoro.js");
-    const sourceNames = ["index.html", "style.css", "favicon.svg", "app.js", "storage.js", "tts-worker.js", "sw.js"];
+    const sourceNames = ["index.html", "style.css", "favicon.svg", "app.js", "updates.js", "storage.js", "tts-worker.js", "sw.js"];
     const files = Object.fromEntries(sourceNames.map((name) => [name, fs.readFileSync(path.join(root, "src", "hosted", name), "utf8")]));
     files["audio.js"] = fs.readFileSync(path.join(root, "src", "audio.mjs"), "utf8");
     files["THIRD_PARTY_NOTICES.txt"] = fs.readFileSync(path.join(root, "THIRD_PARTY_NOTICES.txt"), "utf8");
@@ -80,11 +80,11 @@ export async function buildHosted({ root = ROOT, output = path.join(root, "dist"
       .replace("<!--LICENSES-->", () => renderLicenses(root, { inlineTexts: false }));
     files["LICENSE.txt"] = fs.readFileSync(path.join(root, "LICENSE"), "utf8");
     const id = hash(JSON.stringify({ files, assets })).slice(0, 16);
-    const shell = SHELL.map((name) => name.endsWith(".js") ? `${name}?v=${id}` : name);
+    const shell = SHELL.map((name) => /\.(js|css)$/.test(name) ? `${name}?v=${id}` : name);
     files["manifest.js"] = `export const MANIFEST = ${JSON.stringify({ id, dataId: hash(JSON.stringify(assets)).slice(0, 16), modelId: MODEL_ID, voices: VOICES, assets, shell }, null, 2)};\n`;
     for (const [name, source] of Object.entries(files)) {
       const rendered = name.endsWith(".js") ? source.replace(/from "(\.\/[^"?]+\.js)"/g, (_, url) => `from "${url}?v=${id}"`)
-        : name === "index.html" ? source.replace('./app.js"', `./app.js?v=${id}"`) : source;
+        : name === "index.html" ? source.replace(/(\.\/(?:app\.js|prnui\.css|style\.css))"/g, `$1?v=${id}"`) : source;
       fs.writeFileSync(path.join(temporary, name), rendered);
     }
     // Served beside the app but outside the manifest, so offline caching never downloads it.

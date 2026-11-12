@@ -3,13 +3,22 @@ import { MANIFEST } from "./manifest.js";
 export const BASE = new URL(".", import.meta.url);
 export const PREFIX = `offline-speech:${encodeURIComponent(BASE.pathname)}:`;
 export const SHELL_CACHE = `${PREFIX}shell:${MANIFEST.id}`;
-export const DATA_CACHE = `${PREFIX}data:${MANIFEST.dataId}`;
+export const DATA_CACHE = `${PREFIX}data:shared`;
 export const TOTAL_BYTES = MANIFEST.assets.reduce((n, asset) => n + asset.size, 0);
 export const PARTS = MANIFEST.assets.flatMap((asset) => asset.parts.map((part) => ({ ...part, type: asset.parts.length === 1 ? asset.type : "application/octet-stream" })));
 export const urlFor = (path) => new URL(path, BASE).href;
 export const versioned = (path) => `${urlFor(path)}?v=${MANIFEST.id}`;
 const dataNames = async () => (await caches.keys()).filter((name) => name.startsWith(`${PREFIX}data:`));
 const validPart = (response, part) => response?.headers.get("X-Offline-Speech-SHA256") === part.sha256 && Number(response.headers.get("Content-Length")) === part.size;
+
+// Payload URLs identify their bytes. Reuse verified parts from earlier releases
+// without copying the model or deleting files an open tab still needs.
+async function savedPart(part) {
+  for (const name of await dataNames()) {
+    const response = await (await caches.open(name)).match(urlFor(part.url));
+    if (validPart(response, part)) return response;
+  }
+}
 
 export function resolveAsset(input) {
   const url = input instanceof Request ? input.url : String(input);
@@ -26,11 +35,10 @@ export async function getUsage() {
       const size = Number(response.headers.get("X-Offline-Speech-Bytes") ?? response.headers.get("Content-Length")) || 0;
       if (name.startsWith(`${PREFIX}data:`)) dataBytes += size;
       else shellBytes += size;
-      if (name === DATA_CACHE) {
-        const part = PARTS.find((part) => urlFor(part.url) === request.url);
-        if (part && validPart(response, part)) { savedBytes += part.size; savedParts++; }
-      }
     }
+  }
+  for (const part of PARTS) {
+    if (await savedPart(part)) { savedBytes += part.size; savedParts++; }
   }
   return { dataBytes, shellBytes, savedBytes, complete: savedParts === PARTS.length };
 }
@@ -38,11 +46,11 @@ export async function getUsage() {
 export async function installAssets(onProgress, signal) {
   const cache = await caches.open(DATA_CACHE);
   let saved = 0;
-  for (const part of PARTS) if (validPart(await cache.match(urlFor(part.url)), part)) saved += part.size;
+  for (const part of PARTS) if (await savedPart(part)) saved += part.size;
   onProgress({ received: saved, total: TOTAL_BYTES });
   for (const part of PARTS) {
     signal.throwIfAborted();
-    if (validPart(await cache.match(urlFor(part.url)), part)) continue;
+    if (await savedPart(part)) continue;
     const response = await fetch(urlFor(part.url), { cache: "no-store", signal });
     if (!response.ok || !response.body) throw new Error(`The download server returned HTTP ${response.status}`);
     const reader = response.body.getReader();
@@ -80,7 +88,6 @@ export async function deleteAssets() {
 }
 
 export async function readAsset(asset) {
-  const cache = await caches.open(DATA_CACHE);
   let index = 0, reader;
   const body = new ReadableStream({
     async pull(controller) {
@@ -89,8 +96,8 @@ export async function readAsset(asset) {
           if (!reader) {
             if (index === asset.parts.length) { controller.close(); return; }
             const part = asset.parts[index++];
-            const response = await cache.match(urlFor(part.url));
-            if (!validPart(response, part)) throw new Error("Offline files are missing. Download them again.");
+            const response = await savedPart(part);
+            if (!response) throw new Error("Offline files are missing. Download them again.");
             reader = response.body.getReader();
           }
           const { value, done } = await reader.read();

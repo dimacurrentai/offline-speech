@@ -155,11 +155,11 @@ test("a subdirectory bookmark survives a cold offline browser and lets users rec
     await page.select("#theme", "dark");
     assert.equal(await page.$eval("body", el => getComputedStyle(el).backgroundColor), "rgb(13, 17, 23)");
     const upgrade = await page.evaluate(async ({ obsolete, current }) => ({
-      removedOld: !(await caches.has(obsolete)),
+      keptOld: await caches.has(obsolete),
       keptCurrent: await (await caches.open(current)).match(new URL("current-marker", location.href)).then((r) => r?.text()),
       keptParent: await (await caches.open("parent-application")).match("/parent-marker").then((r) => r?.text()),
     }), cacheNames);
-    assert.deepEqual(upgrade, { removedOld: true, keptCurrent: "keep current", keptParent: "keep me" });
+    assert.deepEqual(upgrade, { keptOld: true, keptCurrent: "keep current", keptParent: "keep me" });
     assert.equal(await page.$eval("#ram-usage", (el) => el.textContent), "Model unloaded");
     const matches = await page.evaluate(async () => {
       const storageUrl = document.querySelector('script[type="module"]').src.replace("app.js", "storage.js");

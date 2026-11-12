@@ -24,12 +24,17 @@
       <span class="select-caret"></span>
     </div>
   </div>
+  <aside id="app-update" class="chamfer callout callout--held" role="status" hidden>
+    <div class="callout-title">Update available</div>
+    <p class="callout-body">Your saved speech files are kept. Finish playback, then update to continue downloading. Your text and selected voice will stay; generated audio will be cleared.</p>
+    <button id="reload-update" class="chamfer btn btn--orange" type="button"><span>Update page</span></button>
+  </aside>
   <nav aria-label="Steps to hear speech"><ol class="steps"><li><a href="#offline-files">1 · Download</a></li><li><a href="#model">2 · Load model</a></li><li><a href="#speech">3 · Speak</a></li></ol></nav>
   <div class="chamfer callout callout--held">
     <div class="callout-title">Next step</div>
     <p id="next-step" class="callout-body" role="status" aria-live="polite">Preparing offline storage.</p>
   </div>
-  <section id="offline-files" class="chamfer card card--accent-left" aria-current="step" aria-labelledby="offline-title">
+  <section id="offline-files" data-section-ref="01" class="chamfer card" aria-current="step" aria-labelledby="offline-title">
     <h2 id="offline-title">1. Download speech files</h2>
     <p id="download-help">Start here: press <strong>Download for offline use</strong>. This saves the model and voices to disk once; it does not load them into RAM.</p>
     <p id="offline-state" role="status">Checking saved files…</p>
@@ -42,7 +47,7 @@
     <p id="download-status" class="muted" aria-live="polite"></p>
     <small id="persistence">Offline files are stored in this browser profile. Browser settings or storage pressure can clear them.</small>
   </section>
-  <section id="model" class="chamfer card card--accent-left" aria-labelledby="resources-title">
+  <section id="model" data-section-ref="02" class="chamfer card" aria-labelledby="resources-title">
     <h2 id="resources-title">2. Load the model</h2>
     <p>After the download finishes, press <strong>Load model</strong>. Wait for “Ready”, then go to step 3. Load it again whenever you reopen this page or unload RAM.</p>
     <div class="metric-grid resources">
@@ -57,7 +62,7 @@
     <small>Unloading keeps your saved files for quick offline reuse. Deleting removes the downloaded model, voices and libraries and unloads RAM. Only the small page shell remains; offline speech will need another download.</small>
     <details><summary>Storage details</summary><p id="storage-detail">Saved-file sizes exclude browser bookkeeping and temporary files.</p><p id="origin-usage"></p></details>
   </section>
-  <section id="speech" class="chamfer card card--accent-left" aria-labelledby="speech-title">
+  <section id="speech" data-section-ref="03" class="chamfer card" aria-labelledby="speech-title">
     <h2 id="speech-title">3. Type text and hear speech</h2>
     <p>Choose a voice and press <strong>Speak</strong>. Speak prepares and plays the audio. Recent text-and-voice combinations replay instantly from the beginning without loading or running the model. Save WAV keeps the completed file. Progress stays below while it is preparing.</p>
     <div class="field text-field">

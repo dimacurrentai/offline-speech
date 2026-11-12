@@ -12,10 +12,6 @@ small, .muted { color: var(--text-muted); }
 small { display: block; margin: 8px 0; }
 .subtitle { margin-bottom: 16px; }
 
-.card::after { content: none; }
-.card.card--accent-left { --accent: var(--border); }
-.card.card--accent-left.accent-orange,
-.card.card--accent-left[aria-current="step"] { --accent: var(--orange); }
 .callout { margin: 16px 0; }
 
 .steps { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 0 0 16px; padding: 0; list-style: none; font-family: var(--font-mono); }
@@ -39,9 +35,7 @@ summary { cursor: pointer; }
 .sentence-progress small { display: block; }
 .sentence-progress [aria-current="step"] { color: var(--orange); }
 
-.license-table { overflow-x: auto; }
-.license-table table { width: 100%; border-collapse: collapse; }
-.license-table th, .license-table td { border-bottom: 1px solid var(--border); padding: 6px; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.license-table th, .license-table td { vertical-align: top; overflow-wrap: anywhere; }
 pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 #source { overflow-wrap: anywhere; }
 
